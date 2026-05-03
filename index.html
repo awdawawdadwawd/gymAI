@@ -1127,7 +1127,7 @@ async function downloadExcel() {
     const routineData = window._lastRoutine;
     if (!routineData) throw new Error('No hay rutina generada');
 
-    const wb = XLSX.read(TEMPLATE_B64, { type: 'base64', cellStyles: true });
+    const wb = XLSX.read(atob(TEMPLATE_B64), { type: 'binary', cellStyles: true });
     const ws = wb.Sheets['Rutina'];
     const today = new Date().toLocaleDateString('es-AR');
     setCellVal(ws, 'A1', `Inicio de Rutina: ${today}`);
