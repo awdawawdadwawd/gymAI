@@ -199,6 +199,20 @@
   }
   .exercise:last-child { border-bottom: none; }
   .exercise-name { font-weight: 500; }
+  .warmup-block {
+    background: rgba(255,107,53,0.07);
+    border: 1px solid rgba(255,107,53,0.2);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    font-size: 0.88rem;
+    color: var(--text);
+    line-height: 1.5;
+  }
+  .warmup-block strong {
+    color: var(--accent);
+    margin-right: 6px;
+  }
   .exercise-sets {
     color: var(--accent-2);
     font-weight: 600;
@@ -948,7 +962,8 @@ function buildPrompt() {
 
   return `Entrenador personal. Rutina en español. SOLO JSON sin markdown.
 P:${state.weight}kg H:${state.height}cm Obj:${state.goal.map(g=>GOAL_LABELS[g]).join('+')} Lesiones:${injuryList}${state.injuryNote?` "${state.injuryNote}"`:''}  Equipo:${equipList} Días:${state.days} Ejercicios/día:${state.exercises}
-JSON:{"dias":[{"nombre":"Día 1 - X","ejercicios":[{"n":"nombre","s":"4x8-10"}]}]}`;
+cal=entrada en calor específica para ese día (2-3 ejercicios concretos con series/tiempo, ej: "2x30 movilidad hombro, 3x10 facepull liviano").
+JSON:{"dias":[{"nombre":"Día 1 - X","cal":"entrada en calor","ejercicios":[{"n":"nombre","s":"4x8-10"}]}]}`;
 }
 
 function renderSummary(injuries) {
@@ -975,6 +990,9 @@ function renderGeminiRoutine(data) {
   $('#warnings').innerHTML = warningsHTML;
 
   $('#routine').innerHTML = data.dias.map(day => {
+    const warmupHTML = day.cal
+      ? `<div class="warmup-block"><strong>🔥 Entrada en calor:</strong>${day.cal}</div>`
+      : '';
     const exHTML = day.ejercicios.map(ex => `
       <div class="exercise">
         <span class="exercise-name">${ex.n}</span>
@@ -982,6 +1000,7 @@ function renderGeminiRoutine(data) {
       </div>`).join('');
     return `<div class="routine-day">
       <h3>${day.nombre}</h3>
+      ${warmupHTML}
       ${exHTML}
     </div>`;
   }).join('');
