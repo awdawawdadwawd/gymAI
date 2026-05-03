@@ -966,13 +966,30 @@ function buildPrompt() {
   const equipList = state.equipment
     .filter(e => e !== 'todo')
     .map(e => EQUIP_LABELS[e] || e)
-    .join(', ');
+    .join(', ') || 'solo peso corporal';
   const injuryList = injuries.map(i => INJURY_LABELS[i] || i).join(', ') || 'ninguna';
 
-  return `Entrenador personal. Rutina en español. SOLO JSON sin markdown.
-P:${state.weight}kg H:${state.height}cm Obj:${state.goal.map(g=>GOAL_LABELS[g]).join('+')} Lesiones:${injuryList}${state.injuryNote?` "${state.injuryNote}"`:''}  Equipo:${equipList} Días:${state.days} Ejercicios/día:${state.exercises}
-cal=entrada en calor específica para ese día (2-3 ejercicios concretos con series/tiempo, ej: "2x30 movilidad hombro, 3x10 facepull liviano").
-JSON:{"dias":[{"nombre":"Día 1 - X","cal":"entrada en calor","ejercicios":[{"n":"nombre","s":"4x8-10"}]}]}`;
+  return `Sos un entrenador personal. Genera una rutina de gimnasio en español. Responde ÚNICAMENTE con JSON válido, sin markdown ni texto extra.
+
+DATOS DEL USUARIO:
+- Peso corporal: ${state.weight} kg
+- Altura: ${state.height} cm
+- Objetivo: ${state.goal.map(g => GOAL_LABELS[g]).join(', ')}
+- Lesiones: ${injuryList}${state.injuryNote ? ` (${state.injuryNote})` : ''}
+- Equipamiento disponible: ${equipList}
+- Días de entrenamiento por semana: ${state.days}
+- Ejercicios principales por día: ${state.exercises}
+
+REGLAS IMPORTANTES:
+- Genera exactamente ${state.days} días de entrenamiento.
+- Cada día tiene exactamente ${state.exercises} ejercicios en el array "ejercicios".
+- El campo "cal" es la entrada en calor de ese día: 2-3 actividades concretas con series/tiempo (ej: "5min bici suave, 2x15 rotacion hombro, 2x10 leg swing").
+- Los nombres de ejercicios ("n") son solo el nombre del ejercicio, sin incluir pesos ni medidas del usuario.
+- El campo "s" es series x repeticiones (ej: "4x8-10", "3x12").
+- Adaptar ejercicios al equipamiento disponible y evitar zonas lesionadas.
+
+FORMATO JSON (respetar exactamente estas claves):
+{"dias":[{"nombre":"Día 1 - Pecho y Tríceps","cal":"5min caminata, 2x15 rotacion hombro, 2x10 flexion codo","ejercicios":[{"n":"Press de banca con barra","s":"4x8-10"},{"n":"Aperturas con mancuernas","s":"3x12"}]}]}`;
 }
 
 function renderSummary(injuries) {
@@ -1059,8 +1076,11 @@ async function generateRoutine() {
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getGroqKey()}` },
       body: JSON.stringify({
         model: 'llama-3.1-8b-instant',
-        messages: [{ role: 'user', content: buildPrompt() }],
-        temperature: 0.7,
+        messages: [
+          { role: 'system', content: 'Eres un entrenador personal experto. Respondes ÚNICAMENTE con JSON válido siguiendo exactamente el formato indicado. Nunca incluyas texto fuera del JSON.' },
+          { role: 'user', content: buildPrompt() }
+        ],
+        temperature: 0.5,
         max_tokens: 3000,
         response_format: { type: 'json_object' }
       })
