@@ -898,44 +898,10 @@ function buildPrompt() {
     .join(', ');
   const injuryList = injuries.map(i => INJURY_LABELS[i] || i).join(', ') || 'ninguna';
 
-  return `Sos un entrenador personal experto. Generá una rutina de gimnasio en español para la siguiente persona:
-
-DATOS:
-- Peso: ${state.weight} kg
-- Altura: ${state.height} cm
-- IMC: ${(state.weight / Math.pow(state.height/100, 2)).toFixed(1)}
-- Objetivo: ${GOAL_LABELS[state.goal]}
-- Lesiones / limitaciones: ${injuryList}${state.injuryNote ? ` (detalle: ${state.injuryNote})` : ''}
-- Equipamiento disponible: ${equipList}
-- Días de entrenamiento por semana: ${state.days}
-
-INSTRUCCIONES IMPORTANTES:
-- Adaptá TODOS los ejercicios a las lesiones indicadas. Evitá ejercicios contraindicados.
-- Usá SOLO el equipamiento disponible.
-- Ajustá series, repeticiones y descansos al objetivo.
-- Distribuí los días según la frecuencia y el objetivo (push/pull/legs, full body, etc.).
-- Incluí una nota de consejo al final de cada día (tips de ejecución o advertencia).
-
-Respondé ÚNICAMENTE con un JSON válido con esta estructura exacta (sin texto adicional, sin markdown):
-{
-  "split_nombre": "nombre del split elegido",
-  "consejo_general": "un consejo general de 1-2 oraciones para esta persona",
-  "dias": [
-    {
-      "nombre": "Día 1 - nombre",
-      "enfoque": "grupos musculares trabajados",
-      "ejercicios": [
-        {
-          "nombre": "nombre del ejercicio",
-          "series_reps": "ej: 4 x 8-10",
-          "descanso": "ej: 90 seg",
-          "nota": "tip breve de ejecución (opcional)"
-        }
-      ],
-      "consejo_dia": "tip o advertencia para este día"
-    }
-  ]
-}`;
+  return `Eres entrenador personal. Crea rutina de gimnasio en español. Responde SOLO JSON válido sin markdown.
+Datos: peso ${state.weight}kg, altura ${state.height}cm, objetivo: ${GOAL_LABELS[state.goal]}, lesiones: ${injuryList}${state.injuryNote ? ` (${state.injuryNote})` : ''}, equipo: ${equipList}, días/semana: ${state.days}.
+Reglas: evita ejercicios contraindicados, usa solo el equipo listado, ajusta series/reps al objetivo.
+Estructura JSON requerida: {"split_nombre":"...","consejo_general":"...","dias":[{"nombre":"Día 1 - X","enfoque":"...","ejercicios":[{"nombre":"...","series_reps":"...","descanso":"...","nota":"..."}],"consejo_dia":"..."}]}`;
 }
 
 function renderSummary(injuries) {
@@ -1028,8 +994,7 @@ async function generateRoutine() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: buildPrompt() }] }],
-        generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
+        contents: [{ role: 'user', parts: [{ text: buildPrompt() }] }]
       })
     });
 
