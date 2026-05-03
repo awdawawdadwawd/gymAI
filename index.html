@@ -281,6 +281,11 @@
   <header>
     <h1>GymAI</h1>
     <p>Generador inteligente de rutinas personalizadas</p>
+    <div id="keyBar" style="margin-top:14px;display:flex;gap:8px;align-items:center;justify-content:center;">
+      <input id="keyInput" type="password" placeholder="Groq API key (gsk_...)" style="max-width:280px;padding:8px 12px;font-size:0.85rem;" />
+      <button onclick="saveKey()" class="btn-primary" style="flex:none;padding:8px 16px;font-size:0.85rem;">Guardar</button>
+    </div>
+    <p id="keyStatus" style="font-size:0.8rem;margin-top:6px;color:var(--muted);"></p>
   </header>
 
   <div class="card">
@@ -415,6 +420,26 @@ const state = {
 };
 
 const $ = (sel) => document.querySelector(sel);
+
+function saveKey() {
+  const k = $('#keyInput').value.trim();
+  if (!k.startsWith('gsk_')) { alert('La key debe empezar con gsk_'); return; }
+  setGroqKey(k);
+  updateKeyStatus();
+}
+function updateKeyStatus() {
+  const k = getGroqKey();
+  if (k) {
+    $('#keyStatus').textContent = '✓ API key guardada';
+    $('#keyStatus').style.color = 'var(--ok)';
+    $('#keyInput').value = '';
+    $('#keyInput').placeholder = 'Key guardada — pegá una nueva para cambiarla';
+  } else {
+    $('#keyStatus').textContent = 'Sin key — la rutina usará el generador local';
+    $('#keyStatus').style.color = 'var(--muted)';
+  }
+}
+document.addEventListener('DOMContentLoaded', updateKeyStatus);
 const $$ = (sel) => document.querySelectorAll(sel);
 
 // Multi-select handlers
@@ -863,8 +888,9 @@ function pickExercises(group, equipment, injuries, count, used) {
   return selected;
 }
 
-const GEMINI_KEY = 'AIzaSyA45VGbRsD5kJ79Ztps1vZytWE7QzBOHqc';
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`;
+const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+function getGroqKey() { return localStorage.getItem('groq_api_key') || ''; }
+function setGroqKey(k) { localStorage.setItem('groq_api_key', k); }
 
 const GOAL_LABELS = {
   hipertrofia: 'Hipertrofia (aumento de masa muscular)',
@@ -990,17 +1016,19 @@ async function generateRoutine() {
   $('#loadingBox').innerHTML = `<div class="spinner"></div><p>Generando tu rutina con IA...</p><p style="color:var(--muted);font-size:0.85rem;margin-top:8px">Analizando lesiones y objetivos</p>`;
 
   try {
-    const res = await fetch(GEMINI_URL, {
+    const res = await fetch(GROQ_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getGroqKey()}` },
       body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: buildPrompt() }] }]
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: buildPrompt() }],
+        temperature: 0.7
       })
     });
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const raw = data.choices?.[0]?.message?.content || '';
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('Respuesta inválida de la IA');
     const routine = JSON.parse(jsonMatch[0]);
