@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GymAI — Generador de Rutinas</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f1115;
+    --card: #181c25;
+    --card-2: #20242f;
+    --accent: #ff6b35;
+    --accent-2: #ffa94d;
+    --text: #f5f5f5;
+    --muted: #9aa0aa;
+    --border: #2a2f3a;
+    --ok: #4ade80;
+    --warn: #facc15;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: linear-gradient(135deg, #0f1115 0%, #1a1f2e 100%);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .container {
+    width: 100%;
+    max-width: 720px;
+  }
+  header {
+    text-align: center;
+    margin-bottom: 30px;
+  }
+  header h1 {
+    font-size: 2.2rem;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+  }
+  header p {
+    color: var(--muted);
+    font-size: 0.95rem;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+  }
+  .progress {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 24px;
+  }
+  .progress-step {
+    flex: 1;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    transition: background 0.3s;
+  }
+  .progress-step.active {
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  }
+  .step { display: none; }
+  .step.active { display: block; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .step h2 {
+    font-size: 1.4rem;
+    margin-bottom: 6px;
+  }
+  .step .subtitle {
+    color: var(--muted);
+    margin-bottom: 22px;
+    font-size: 0.92rem;
+  }
+  label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 500;
+    font-size: 0.92rem;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  input, select, textarea {
+    width: 100%;
+    padding: 12px 14px;
+    background: var(--card-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-size: 1rem;
+    font-family: inherit;
+    transition: border 0.2s;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  textarea { resize: vertical; min-height: 80px; }
+  .options-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .option {
+    background: var(--card-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 12px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+    font-size: 0.92rem;
+    user-select: none;
+  }
+  .option:hover { border-color: var(--accent); }
+  .option.selected {
+    background: linear-gradient(135deg, rgba(255,107,53,0.15), rgba(255,169,77,0.1));
+    border-color: var(--accent);
+  }
+  .bmi-display {
+    background: var(--card-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    margin-top: 8px;
+    font-size: 0.9rem;
+    color: var(--muted);
+    text-align: center;
+  }
+  .bmi-value { color: var(--text); font-weight: 600; }
+  .nav {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 24px;
+  }
+  button {
+    padding: 12px 24px;
+    border-radius: 10px;
+    border: none;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #fff;
+    flex: 1;
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(255,107,53,0.3); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+  .btn-secondary {
+    background: var(--card-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { border-color: var(--accent); }
+  .equip-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 8px;
+  }
+  .routine-day {
+    background: var(--card-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    margin-bottom: 14px;
+  }
+  .routine-day h3 {
+    color: var(--accent-2);
+    margin-bottom: 4px;
+    font-size: 1.1rem;
+  }
+  .routine-day .focus {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-bottom: 12px;
+  }
+  .exercise:last-child { border-bottom: none; }
+  .exercise-name { font-weight: 500; }
+  .exercise-sets {
+    color: var(--accent-2);
+    font-weight: 600;
+  }
+  .summary {
+    background: var(--card-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 18px;
+    font-size: 0.9rem;
+  }
+  .summary-row { display: flex; justify-content: space-between; padding: 4px 0; }
+  .summary-row span:first-child { color: var(--muted); }
+  .warning {
+    background: rgba(250,204,21,0.1);
+    border: 1px solid rgba(250,204,21,0.3);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 12px;
+    font-size: 0.88rem;
+    color: var(--warn);
+  }
+  .ai-tip {
+    background: rgba(255,107,53,0.08);
+    border: 1px solid rgba(255,107,53,0.25);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 18px;
+    font-size: 0.9rem;
+    color: var(--accent-2);
+    line-height: 1.5;
+  }
+  .exercise {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px dashed var(--border);
+    font-size: 0.92rem;
+  }
+  .exercise-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .exercise-note { font-size: 0.8rem; color: var(--muted); font-style: italic; }
+  .exercise-right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0; }
+  .exercise-rest { font-size: 0.78rem; color: var(--muted); }
+  .day-tip {
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: rgba(74,222,128,0.07);
+    border-left: 3px solid var(--ok);
+    border-radius: 0 8px 8px 0;
+    font-size: 0.85rem;
+    color: var(--ok);
+    line-height: 1.4;
+  }
+  .loading {
+    text-align: center;
+    padding: 40px 20px;
+  }
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    margin: 0 auto 16px;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (max-width: 600px) {
+    .row { grid-template-columns: 1fr; }
+    header h1 { font-size: 1.7rem; }
+    .card { padding: 20px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>GymAI</h1>
+    <p>Generador inteligente de rutinas personalizadas</p>
+  </header>
+
+  <div class="card">
+    <div class="progress">
+      <div class="progress-step active"></div>
+      <div class="progress-step"></div>
+      <div class="progress-step"></div>
+      <div class="progress-step"></div>
+      <div class="progress-step"></div>
+      <div class="progress-step"></div>
+    </div>
+
+    <!-- Paso 1: Peso y altura -->
+    <div class="step active" data-step="1">
+      <h2>Datos físicos</h2>
+      <p class="subtitle">Empecemos con tus medidas básicas</p>
+      <div class="row">
+        <div>
+          <label for="weight">Peso (kg)</label>
+          <input type="number" id="weight" min="30" max="250" placeholder="70" />
+        </div>
+        <div>
+          <label for="height">Altura (cm)</label>
+          <input type="number" id="height" min="120" max="230" placeholder="175" />
+        </div>
+      </div>
+      <div class="bmi-display" id="bmiDisplay" style="display:none;"></div>
+    </div>
+
+    <!-- Paso 2: Lesiones -->
+    <div class="step" data-step="2">
+      <h2>Lesiones o limitaciones</h2>
+      <p class="subtitle">Marcá las zonas afectadas para evitar ejercicios riesgosos</p>
+      <div class="options-grid" id="injuriesGrid">
+        <div class="option" data-value="ninguna">Ninguna</div>
+        <div class="option" data-value="rodilla">Rodilla</div>
+        <div class="option" data-value="hombro">Hombro</div>
+        <div class="option" data-value="espalda_baja">Espalda baja</div>
+        <div class="option" data-value="espalda_alta">Espalda alta / cuello</div>
+        <div class="option" data-value="codo">Codo / muñeca</div>
+        <div class="option" data-value="cadera">Cadera</div>
+        <div class="option" data-value="tobillo">Tobillo</div>
+      </div>
+      <label for="injuryNote">Detalle adicional (opcional)</label>
+      <textarea id="injuryNote" placeholder="Ej: hernia L4-L5, evitar cargas axiales..."></textarea>
+    </div>
+
+    <!-- Paso 3: Objetivo -->
+    <div class="step" data-step="3">
+      <h2>Objetivo principal</h2>
+      <p class="subtitle">¿Qué querés lograr con tu entrenamiento?</p>
+      <div class="options-grid" id="goalGrid">
+        <div class="option" data-value="hipertrofia">Hipertrofia (masa muscular)</div>
+        <div class="option" data-value="fuerza">Fuerza máxima</div>
+        <div class="option" data-value="perdida_grasa">Pérdida de grasa</div>
+        <div class="option" data-value="resistencia">Resistencia</div>
+        <div class="option" data-value="tonificacion">Tonificación general</div>
+        <div class="option" data-value="rehabilitacion">Rehabilitación / movilidad</div>
+      </div>
+    </div>
+
+    <!-- Paso 4: Equipamiento -->
+    <div class="step" data-step="4">
+      <h2>Equipamiento disponible</h2>
+      <p class="subtitle">Marcá todo el equipo al que tenés acceso</p>
+      <div class="equip-grid" id="equipGrid">
+        <div class="option" data-value="todo" style="grid-column: 1/-1; background: linear-gradient(135deg, rgba(255,107,53,0.12), rgba(255,169,77,0.08)); font-weight: 600;">✓ Seleccionar todo (gimnasio completo)</div>
+        <div class="option" data-value="mancuernas">Mancuernas</div>
+        <div class="option" data-value="barra">Barra olímpica</div>
+        <div class="option" data-value="discos">Discos</div>
+        <div class="option" data-value="banco">Banco plano/inclinado</div>
+        <div class="option" data-value="rack">Rack / jaula</div>
+        <div class="option" data-value="poleas">Poleas / cables</div>
+        <div class="option" data-value="maquinas">Máquinas guiadas</div>
+        <div class="option" data-value="kettlebell">Kettlebells</div>
+        <div class="option" data-value="bandas">Bandas elásticas</div>
+        <div class="option" data-value="trx">TRX / suspensión</div>
+        <div class="option" data-value="cardio">Máquinas de cardio</div>
+        <div class="option" data-value="landmine">Landmine</div>
+        <div class="option" data-value="medicine_ball">Balón medicinal</div>
+        <div class="option" data-value="barra_dominadas">Barra de dominadas</div>
+        <div class="option" data-value="peso_corporal">Solo peso corporal</div>
+      </div>
+    </div>
+
+    <!-- Paso 5: Días -->
+    <div class="step" data-step="5">
+      <h2>Frecuencia semanal</h2>
+      <p class="subtitle">¿Cuántos días por semana podés entrenar?</p>
+      <div class="options-grid" id="daysGrid">
+        <div class="option" data-value="2">2 días</div>
+        <div class="option" data-value="3">3 días</div>
+        <div class="option" data-value="4">4 días</div>
+        <div class="option" data-value="5">5 días</div>
+        <div class="option" data-value="6">6 días</div>
+      </div>
+    </div>
+
+    <!-- Paso 6: Resultado -->
+    <div class="step" data-step="6">
+      <h2>Tu rutina personalizada</h2>
+      <p class="subtitle" id="resultSubtitle">Generada según tu perfil</p>
+      <div id="loadingBox" class="loading">
+        <div class="spinner"></div>
+        <p>Generando tu rutina...</p>
+      </div>
+      <div id="resultBox" style="display:none;">
+        <div class="summary" id="summary"></div>
+        <div id="warnings"></div>
+        <div id="routine"></div>
+      </div>
+    </div>
+
+    <div class="nav">
+      <button class="btn-secondary" id="backBtn" style="display:none;">Atrás</button>
+      <button class="btn-primary" id="nextBtn">Siguiente</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const state = {
+  step: 1,
+  totalSteps: 6,
+  weight: null,
+  height: null,
+  injuries: [],
+  injuryNote: '',
+  goal: null,
+  equipment: [],
+  days: null
+};
+
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
+
+// Multi-select handlers
+function setupMultiSelect(gridId, exclusiveValue) {
+  $$(`#${gridId} .option`).forEach(opt => {
+    opt.addEventListener('click', () => {
+      const val = opt.dataset.value;
+      if (exclusiveValue && val === exclusiveValue) {
+        $$(`#${gridId} .option`).forEach(o => o.classList.remove('selected'));
+        opt.classList.add('selected');
+      } else {
+        if (exclusiveValue) {
+          $$(`#${gridId} .option[data-value="${exclusiveValue}"]`).forEach(o => o.classList.remove('selected'));
+        }
+        opt.classList.toggle('selected');
+      }
+    });
+  });
+}
+
+function setupSingleSelect(gridId) {
+  $$(`#${gridId} .option`).forEach(opt => {
+    opt.addEventListener('click', () => {
+      $$(`#${gridId} .option`).forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+    });
+  });
+}
+
+setupMultiSelect('injuriesGrid', 'ninguna');
+setupSingleSelect('goalGrid');
+setupEquipmentSelect();
+setupSingleSelect('daysGrid');
+
+function setupEquipmentSelect() {
+  $$('#equipGrid .option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      const val = opt.dataset.value;
+      if (val === 'todo') {
+        const allOptions = $$('#equipGrid .option');
+        const isAllSelected = opt.classList.contains('selected');
+        allOptions.forEach(o => {
+          if (isAllSelected) {
+            o.classList.remove('selected');
+          } else {
+            if (o.dataset.value !== 'peso_corporal') o.classList.add('selected');
+          }
+        });
+      } else if (val === 'peso_corporal') {
+        $$('#equipGrid .option').forEach(o => o.classList.remove('selected'));
+        opt.classList.add('selected');
+      } else {
+        $$('#equipGrid .option[data-value="peso_corporal"]').forEach(o => o.classList.remove('selected'));
+        opt.classList.toggle('selected');
+        const allBtn = $('#equipGrid .option[data-value="todo"]');
+        const total = $$('#equipGrid .option').length - 2;
+        const selected = $$('#equipGrid .option.selected:not([data-value="todo"]):not([data-value="peso_corporal"])').length;
+        if (selected === total) allBtn.classList.add('selected');
+        else allBtn.classList.remove('selected');
+      }
+    });
+  });
+}
+
+// BMI display
+function updateBMI() {
+  const w = parseFloat($('#weight').value);
+  const h = parseFloat($('#height').value);
+  if (w > 0 && h > 0) {
+    const bmi = (w / Math.pow(h/100, 2)).toFixed(1);
+    let cat = '';
+    if (bmi < 18.5) cat = 'bajo peso';
+    else if (bmi < 25) cat = 'normal';
+    else if (bmi < 30) cat = 'sobrepeso';
+    else cat = 'obesidad';
+    $('#bmiDisplay').style.display = 'block';
+    $('#bmiDisplay').innerHTML = `IMC: <span class="bmi-value">${bmi}</span> (${cat})`;
+  } else {
+    $('#bmiDisplay').style.display = 'none';
+  }
+}
+$('#weight').addEventListener('input', updateBMI);
+$('#height').addEventListener('input', updateBMI);
+
+// Navigation
+function showStep(n) {
+  $$('.step').forEach(s => s.classList.remove('active'));
+  $(`[data-step="${n}"]`).classList.add('active');
+  $$('.progress-step').forEach((p, i) => p.classList.toggle('active', i < n));
+  $('#backBtn').style.display = n === 1 ? 'none' : 'block';
+  if (n === state.totalSteps) {
+    $('#nextBtn').style.display = 'none';
+  } else {
+    $('#nextBtn').style.display = 'block';
+    $('#nextBtn').textContent = n === state.totalSteps - 1 ? 'Generar rutina' : 'Siguiente';
+  }
+}
+
+function validateStep(n) {
+  if (n === 1) {
+    const w = parseFloat($('#weight').value);
+    const h = parseFloat($('#height').value);
+    if (!w || w < 30 || w > 250) { alert('Ingresá un peso válido (30-250 kg)'); return false; }
+    if (!h || h < 120 || h > 230) { alert('Ingresá una altura válida (120-230 cm)'); return false; }
+    state.weight = w; state.height = h;
+  }
+  if (n === 2) {
+    const sel = $$('#injuriesGrid .option.selected');
+    if (sel.length === 0) { alert('Seleccioná al menos una opción (o "Ninguna")'); return false; }
+    state.injuries = Array.from(sel).map(o => o.dataset.value);
+    state.injuryNote = $('#injuryNote').value.trim();
+  }
+  if (n === 3) {
+    const sel = $('#goalGrid .option.selected');
+    if (!sel) { alert('Seleccioná un objetivo'); return false; }
+    state.goal = sel.dataset.value;
+  }
+  if (n === 4) {
+    const sel = $$('#equipGrid .option.selected');
+    if (sel.length === 0) { alert('Seleccioná al menos una opción de equipamiento'); return false; }
+    state.equipment = Array.from(sel).map(o => o.dataset.value);
+  }
+  if (n === 5) {
+    const sel = $('#daysGrid .option.selected');
+    if (!sel) { alert('Seleccioná cuántos días por semana'); return false; }
+    state.days = parseInt(sel.dataset.value);
+  }
+  return true;
+}
+
+$('#nextBtn').addEventListener('click', () => {
+  if (!validateStep(state.step)) return;
+  state.step++;
+  showStep(state.step);
+  if (state.step === state.totalSteps) generateRoutine();
+});
+
+$('#backBtn').addEventListener('click', () => {
+  if (state.step > 1) {
+    state.step--;
+    showStep(state.step);
+  }
+});
+
+// ====== Generador de rutina (motor de reglas) ======
+
+const EXERCISE_DB = {
+  pecho: [
+    { name: 'Press banca con barra', equip: ['barra','banco','rack'], avoid: ['hombro'] },
+    { name: 'Press banca inclinado con barra', equip: ['barra','banco','rack'], avoid: ['hombro'] },
+    { name: 'Press banca declinado con barra', equip: ['barra','banco'], avoid: ['hombro'] },
+    { name: 'Press banca con mancuernas', equip: ['mancuernas','banco'], avoid: [] },
+    { name: 'Press inclinado mancuernas', equip: ['mancuernas','banco'], avoid: [] },
+    { name: 'Press declinado mancuernas', equip: ['mancuernas','banco'], avoid: [] },
+    { name: 'Aperturas con mancuernas', equip: ['mancuernas','banco'], avoid: ['hombro'] },
+    { name: 'Aperturas inclinadas con mancuernas', equip: ['mancuernas','banco'], avoid: ['hombro'] },
+    { name: 'Aperturas en poleas (cruces)', equip: ['poleas'], avoid: [] },
+    { name: 'Cruce de poleas alto', equip: ['poleas'], avoid: [] },
+    { name: 'Cruce de poleas bajo', equip: ['poleas'], avoid: [] },
+    { name: 'Press en máquina (Hammer)', equip: ['maquinas'], avoid: [] },
+    { name: 'Pec deck (contractor)', equip: ['maquinas'], avoid: ['hombro'] },
+    { name: 'Flexiones estándar', equip: ['peso_corporal'], avoid: ['codo'] },
+    { name: 'Flexiones diamante', equip: ['peso_corporal'], avoid: ['codo','hombro'] },
+    { name: 'Flexiones inclinadas', equip: ['peso_corporal'], avoid: [] },
+    { name: 'Flexiones declinadas (pies elevados)', equip: ['peso_corporal','banco'], avoid: ['hombro'] },
+    { name: 'Flexiones arqueras', equip: ['peso_corporal'], avoid: ['hombro'] },
+    { name: 'Flexiones explosivas (clap)', equip: ['peso_corporal'], avoid: ['hombro','codo'] },
+    { name: 'Fondos en paralelas (énfasis pecho)', equip: ['peso_corporal'], avoid: ['hombro','codo'] },
+    { name: 'Press con kettlebell piso', equip: ['kettlebell'], avoid: [] },
+    { name: 'Press con kettlebell de pie', equip: ['kettlebell'], avoid: [] },
+    { name: 'Flexiones en TRX', equip: ['trx'], avoid: ['hombro'] },
+    { name: 'Aperturas en TRX', equip: ['trx'], avoid: ['hombro'] },
+    { name: 'Press con bandas', equip: ['bandas'], avoid: [] },
+    { name: 'Press landmine de pie', equip: ['landmine','barra'], avoid: [] },
+    { name: 'Pullover con barra', equip: ['barra','banco'], avoid: ['hombro'] }
+  ],
+  espalda: [
+    { name: 'Dominadas pronas', equip: ['barra_dominadas','peso_corporal'], avoid: ['hombro','codo'] },
+    { name: 'Dominadas supinas (chin-ups)', equip: ['barra_dominadas','peso_corporal'], avoid: ['codo'] },
+    { name: 'Dominadas neutras (agarre paralelo)', equip: ['barra_dominadas','peso_corporal'], avoid: ['hombro'] },
+    { name: 'Dominadas asistidas con banda', equip: ['barra_dominadas','bandas'], avoid: [] },
+    { name: 'Remo con barra (pendlay)', equip: ['barra','discos'], avoid: ['espalda_baja'] },
+    { name: 'Remo con barra T', equip: ['barra','discos','landmine'], avoid: ['espalda_baja'] },
+    { name: 'Remo con mancuerna (a una mano)', equip: ['mancuernas','banco'], avoid: [] },
+    { name: 'Remo con mancuernas inclinado', equip: ['mancuernas','banco'], avoid: ['espalda_baja'] },
+    { name: 'Remo Meadows (landmine)', equip: ['landmine','barra'], avoid: [] },
+    { name: 'Jalón al pecho', equip: ['poleas','maquinas'], avoid: [] },
+    { name: 'Jalón al pecho agarre supino', equip: ['poleas','maquinas'], avoid: [] },
+    { name: 'Jalón con agarre cerrado', equip: ['poleas'], avoid: [] },
+    { name: 'Jalón con un brazo', equip: ['poleas'], avoid: [] },
+    { name: 'Remo en polea baja sentado', equip: ['poleas'], avoid: [] },
+    { name: 'Remo en polea con un brazo', equip: ['poleas'], avoid: [] },
+    { name: 'Remo en máquina', equip: ['maquinas'], avoid: [] },
+    { name: 'Peso muerto convencional', equip: ['barra','discos'], avoid: ['espalda_baja'] },
+    { name: 'Peso muerto sumo', equip: ['barra','discos'], avoid: ['espalda_baja'] },
+    { name: 'Peso muerto rumano (barra)', equip: ['barra','discos'], avoid: ['espalda_baja'] },
+    { name: 'Peso muerto rumano mancuernas', equip: ['mancuernas'], avoid: ['espalda_baja'] },
+    { name: 'Peso muerto con kettlebell', equip: ['kettlebell'], avoid: ['espalda_baja'] },
+    { name: 'Pull-over con mancuerna', equip: ['mancuernas','banco'], avoid: ['hombro'] },
+    { name: 'Pull-over en polea', equip: ['poleas'], avoid: [] },
+    { name: 'Remo invertido TRX', equip: ['trx'], avoid: [] },
+    { name: 'Remo invertido en barra', equip: ['barra','rack'], avoid: [] },
+    { name: 'Face pull en polea', equip: ['poleas'], avoid: [] },
+    { name: 'Face pull con bandas', equip: ['bandas'], avoid: [] },
+    { name: 'Encogimientos con mancuernas (trapecio)', equip: ['mancuernas'], avoid: [] },
+    { name: 'Encogimientos con barra', equip: ['barra'], avoid: [] },
+    { name: 'Hiperextensiones', equip: ['peso_corporal','maquinas'], avoid: ['espalda_baja'] },
+    { name: 'Good morning', equip: ['barra'], avoid: ['espalda_baja'] }
+  ],
+  pierna: [
+    { name: 'Sentadilla con barra (back squat)', equip: ['barra','rack','discos'], avoid: ['rodilla','espalda_baja'] },
+    { name: 'Sentadilla frontal (front squat)', equip: ['barra','rack','discos'], avoid: ['rodilla'] },
+    { name: 'Sentadilla con mancuernas (goblet)', equip: ['mancuernas'], avoid: [] },
+    { name: 'Sentadilla con kettlebell goblet', equip: ['kettlebell'], avoid: [] },
+    { name: 'Sentadilla pausa (3 seg)', equip: ['barra','rack'], avoid: ['rodilla'] },
+    { name: 'Sentadilla búlgara con mancuernas', equip: ['mancuernas','banco'], avoid: ['rodilla'] },
+    { name: 'Sentadilla búlgara con barra', equip: ['barra','banco'], avoid: ['rodilla'] },
+    { name: 'Sentadilla pistol (una pierna)', equip: ['peso_corporal'], avoid: ['rodilla','tobillo'] },
+    { name: 'Sentadilla hack (máquina)', equip: ['maquinas'], avoid: ['rodilla'] },
+    { name: 'Sentadilla zercher', equip: ['barra'], avoid: ['rodilla'] },
+    { name: 'Prensa de piernas 45°', equip: ['maquinas'], avoid: [] },
+    { name: 'Prensa horizontal', equip: ['maquinas'], avoid: [] },
+    { name: 'Zancadas alternadas', equip: ['peso_corporal'], avoid: ['rodilla'] },
+    { name: 'Zancadas con mancuernas', equip: ['mancuernas'], avoid: ['rodilla'] },
+    { name: 'Zancadas caminando', equip: ['mancuernas','peso_corporal'], avoid: ['rodilla'] },
+    { name: 'Zancadas reversas', equip: ['mancuernas','peso_corporal'], avoid: ['rodilla'] },
+    { name: 'Zancadas laterales', equip: ['mancuernas','peso_corporal'], avoid: ['rodilla'] },
+    { name: 'Hip thrust con barra', equip: ['barra','banco','discos'], avoid: [] },
+    { name: 'Hip thrust con mancuerna', equip: ['mancuernas','banco'], avoid: [] },
+    { name: 'Hip thrust en máquina', equip: ['maquinas'], avoid: [] },
+    { name: 'Glute bridge a una pierna', equip: ['peso_corporal'], avoid: [] },
+    { name: 'Curl femoral en máquina (acostado)', equip: ['maquinas'], avoid: [] },
+    { name: 'Curl femoral sentado', equip: ['maquinas'], avoid: [] },
+    { name: 'Curl femoral nórdico', equip: ['peso_corporal'], avoid: ['rodilla'] },
+    { name: 'Extensión de cuádriceps', equip: ['maquinas'], avoid: ['rodilla'] },
+    { name: 'Elevación de gemelos de pie', equip: ['peso_corporal','mancuernas'], avoid: ['tobillo'] },
+    { name: 'Elevación de gemelos sentado', equip: ['maquinas'], avoid: [] },
+    { name: 'Elevación de gemelos en prensa', equip: ['maquinas'], avoid: [] },
+    { name: 'Step-ups con mancuernas', equip: ['mancuernas','banco'], avoid: ['rodilla'] },
+    { name: 'Step-ups peso corporal', equip: ['peso_corporal'], avoid: ['rodilla'] },
+    { name: 'Sentadilla cossack', equip: ['peso_corporal'], avoid: ['rodilla','cadera'] },
+    { name: 'Sentadilla sumo con mancuerna', equip: ['mancuernas'], avoid: [] },
+    { name: 'Sled push (trineo)', equip: ['maquinas'], avoid: [] },
+    { name: 'Wall sit (estático)', equip: ['peso_corporal'], avoid: ['rodilla'] },
+    { name: 'Abductores en máquina', equip: ['maquinas'], avoid: [] },
+    { name: 'Aductores en máquina', equip: ['maquinas'], avoid: [] }
+  ],
+  hombro: [
+    { name: 'Press militar con barra (de pie)', equip: ['barra','rack'], avoid: ['hombro','espalda_baja'] },
+    { name: 'Press militar sentado con barra', equip: ['barra','banco','rack'], avoid: ['hombro'] },
+    { name: 'Press de hombros mancuernas (sentado)', equip: ['mancuernas','banco'], avoid: ['hombro'] },
+    { name: 'Press de hombros mancuernas (de pie)', equip: ['mancuernas'], avoid: ['hombro','espalda_baja'] },
+    { name: 'Press Arnold', equip: ['mancuernas','banco'], avoid: ['hombro'] },
+    { name: 'Push press', equip: ['barra','rack'], avoid: ['hombro'] },
+    { name: 'Press landmine', equip: ['landmine','barra'], avoid: [] },
+    { name: 'Elevaciones laterales con mancuernas', equip: ['mancuernas'], avoid: [] },
+    { name: 'Elevaciones laterales en polea', equip: ['poleas'], avoid: [] },
+    { name: 'Elevaciones laterales con bandas', equip: ['bandas'], avoid: [] },
+    { name: 'Elevaciones laterales inclinadas', equip: ['mancuernas','banco'], avoid: [] },
+    { name: 'Elevaciones frontales con mancuernas', equip: ['mancuernas'], avoid: [] },
+    { name: 'Elevaciones frontales con disco', equip: ['discos'], avoid: [] },
+    { name: 'Pájaros con mancuernas (posterior)', equip: ['mancuernas'], avoid: [] },
+    { name: 'Pájaros en máquina (rear delt)', equip: ['maquinas'], avoid: [] },
+    { name: 'Reverse fly en polea', equip: ['poleas'], avoid: [] },
+    { name: 'Press hombros máquina', equip: ['maquinas'], avoid: [] },
+    { name: 'Pike push-ups', equip: ['peso_corporal'], avoid: ['hombro'] },
+    { name: 'Handstand push-ups (asistido en pared)', equip: ['peso_corporal'], avoid: ['hombro'] },
+    { name: 'Remo al mentón con barra', equip: ['barra'], avoid: ['hombro'] },
+    { name: 'Remo al mentón con mancuernas', equip: ['mancuernas'], avoid: ['hombro'] },
+    { name: 'Cuban press', equip: ['mancuernas'], avoid: ['hombro'] },
+    { name: 'Y-T-W (rotador)', equip: ['mancuernas','peso_corporal'], avoid: [] }
+  ],
+  brazo: [
+    { name: 'Curl con barra recta', equip: ['barra'], avoid: ['codo'] },
+    { name: 'Curl con barra Z', equip: ['barra'], avoid: [] },
+    { name: 'Curl alterno con mancuernas', equip: ['mancuernas'], avoid: [] },
+    { name: 'Curl simultáneo con mancuernas', equip: ['mancuernas'], avoid: [] },
+    { name: 'Curl martillo', equip: ['mancuernas'], avoid: [] },
+    { name: 'Curl martillo en cuerda (polea)', equip: ['poleas'], avoid: [] },
+    { name: 'Curl concentrado', equip: ['mancuernas','banco'], avoid: [] },
+    { name: 'Curl predicador (banco Scott)', equip: ['barra','banco'], avoid: ['codo'] },
+    { name: 'Curl predicador con mancuerna', equip: ['mancuernas','banco'], avoid: [] },
+    { name: 'Curl en polea (barra)', equip: ['poleas'], avoid: [] },
+    { name: 'Curl en polea con cuerda', equip: ['poleas'], avoid: [] },
+    { name: 'Curl 21s', equip: ['barra','mancuernas'], avoid: ['codo'] },
+    { name: 'Curl spider', equip: ['mancuernas','banco'], avoid: [] },
+    { name: 'Extensión tríceps en polea (barra)', equip: ['poleas'], avoid: [] },
+    { name: 'Extensión tríceps en polea (cuerda)', equip: ['poleas'], avoid: [] },
+    { name: 'Press francés con barra', equip: ['barra','banco'], avoid: ['codo'] },
+    { name: 'Press francés con mancuernas', equip: ['mancuernas','banco'], avoid: [] },
+    { name: 'Extensión tríceps por encima de la cabeza', equip: ['mancuernas'], avoid: ['hombro'] },
+    { name: 'Extensión tríceps con cuerda overhead', equip: ['poleas'], avoid: ['hombro'] },
+    { name: 'Patada de tríceps con mancuerna', equip: ['mancuernas','banco'], avoid: [] },
+    { name: 'Patada de tríceps en polea', equip: ['poleas'], avoid: [] },
+    { name: 'Press cerrado con barra', equip: ['barra','banco'], avoid: ['codo'] },
+    { name: 'Fondos en banco', equip: ['banco','peso_corporal'], avoid: ['hombro','codo'] },
+    { name: 'Fondos en paralelas (énfasis tríceps)', equip: ['peso_corporal'], avoid: ['hombro','codo'] },
+    { name: 'Diamond push-ups', equip: ['peso_corporal'], avoid: ['codo'] },
+    { name: 'Curl con bandas', equip: ['bandas'], avoid: [] },
+    { name: 'Extensión tríceps con bandas', equip: ['bandas'], avoid: [] },
+    { name: 'Curl muñeca (antebrazo)', equip: ['mancuernas','barra'], avoid: [] }
+  ],
+  core: [
+    { name: 'Plancha frontal', equip: ['peso_corporal'], avoid: [] },
+    { name: 'Plancha lateral', equip: ['peso_corporal'], avoid: [] },
+    { name: 'Plancha con elevación de brazo', equip: ['peso_corporal'], avoid: [] },
+    { name: 'Plancha en TRX', equip: ['trx'], avoid: [] },
+    { name: 'Crunch abdominal', equip: ['peso_corporal'], avoid: ['espalda_baja'] },
+    { name: 'Crunch en polea (rezo)', equip: ['poleas'], avoid: ['espalda_baja'] },
+    { name: 'Crunch inverso', equip: ['peso_corporal'], avoid: ['espalda_baja'] },
+    { name: 'Crunch bicicleta', equip: ['peso_corporal'], avoid: ['espalda_baja'] },
+    { name: 'Elevación de piernas colgado', equip: ['barra_dominadas'], avoid: ['espalda_baja'] },
+    { name: 'Elevación de piernas en suelo', equip: ['peso_corporal'], avoid: ['espalda_baja'] },
+    { name: 'Toes to bar', equip: ['barra_dominadas'], avoid: ['espalda_baja'] },
+    { name: 'Russian twist', equip: ['peso_corporal','medicine_ball'], avoid: ['espalda_baja'] },
+    { name: 'Russian twist con disco', equip: ['discos'], avoid: ['espalda_baja'] },
+    { name: 'Mountain climbers', equip: ['peso_corporal'], avoid: ['rodilla'] },
+    { name: 'Mountain climbers cruzados', equip: ['peso_corporal'], avoid: ['rodilla'] },
+    { name: 'Dead bug', equip: ['peso_corporal'], avoid: [] },
+    { name: 'Bird dog', equip: ['peso_corporal'], avoid: [] },
+    { name: 'Hollow body hold', equip: ['peso_corporal'], avoid: [] },
+    { name: 'Pallof press en polea', equip: ['poleas'], avoid: [] },
+    { name: 'Pallof press con bandas', equip: ['bandas'], avoid: [] },
+    { name: 'Ab wheel (rueda abdominal)', equip: ['peso_corporal'], avoid: ['espalda_baja','hombro'] },
+    { name: 'Cable woodchopper', equip: ['poleas'], avoid: ['espalda_baja'] },
+    { name: 'Sit-up con balón medicinal', equip: ['medicine_ball'], avoid: ['espalda_baja'] },
+    { name: 'Slam con balón medicinal', equip: ['medicine_ball'], avoid: ['espalda_baja'] },
+    { name: 'V-ups', equip: ['peso_corporal'], avoid: ['espalda_baja'] },
+    { name: 'Flutter kicks', equip: ['peso_corporal'], avoid: ['espalda_baja'] },
+    { name: 'Hanging knee raises', equip: ['barra_dominadas'], avoid: [] },
+    { name: 'Farmer carry', equip: ['mancuernas','kettlebell'], avoid: [] }
+  ],
+  cardio: [
+    { name: 'Cinta caminadora (incline walk)', equip: ['cardio'], avoid: [] },
+    { name: 'Cinta sprint intervalos', equip: ['cardio'], avoid: ['rodilla','tobillo'] },
+    { name: 'Bicicleta estática', equip: ['cardio'], avoid: [] },
+    { name: 'Bicicleta de aire (assault bike)', equip: ['cardio'], avoid: [] },
+    { name: 'Spinning intervalos', equip: ['cardio'], avoid: [] },
+    { name: 'Elíptica', equip: ['cardio'], avoid: [] },
+    { name: 'Stair climber (escaladora)', equip: ['cardio'], avoid: ['rodilla'] },
+    { name: 'Remo ergómetro', equip: ['cardio'], avoid: ['espalda_baja'] },
+    { name: 'Skierg', equip: ['cardio'], avoid: ['hombro'] },
+    { name: 'Saltos burpees', equip: ['peso_corporal'], avoid: ['rodilla','tobillo'] },
+    { name: 'Jumping jacks', equip: ['peso_corporal'], avoid: ['rodilla','tobillo'] },
+    { name: 'Saltos en cajón (box jumps)', equip: ['peso_corporal'], avoid: ['rodilla','tobillo'] },
+    { name: 'Saltos a la cuerda', equip: ['peso_corporal'], avoid: ['rodilla','tobillo'] },
+    { name: 'Swing con kettlebell', equip: ['kettlebell'], avoid: ['espalda_baja'] },
+    { name: 'Snatch con kettlebell', equip: ['kettlebell'], avoid: ['hombro','espalda_baja'] },
+    { name: 'Clean & press con kettlebell', equip: ['kettlebell'], avoid: ['hombro'] },
+    { name: 'Thruster con mancuernas', equip: ['mancuernas'], avoid: ['hombro','rodilla'] },
+    { name: 'Battle ropes', equip: ['cardio'], avoid: ['hombro'] }
+  ],
+  movilidad: [
+    { name: 'Cat-cow (gato-camello)', equip: ['peso_corporal'], avoid: [] },
+    { name: 'Movilidad de cadera 90/90', equip: ['peso_corporal'], avoid: [] },
+    { name: 'Estiramiento de isquiotibiales (sentado)', equip: ['peso_corporal'], avoid: [] },
+    { name: 'Estiramiento del piramidal', equip: ['peso_corporal'], avoid: [] },
+    { name: 'Foam roller espalda alta', equip: ['peso_corporal'], avoid: [] },
+    { name: 'Foam roller cuádriceps', equip: ['peso_corporal'], avoid: [] },
+    { name: 'Foam roller IT band', equip: ['peso_corporal'], avoid: [] },
+    { name: 'Estiramiento pectoral en pared', equip: ['peso_corporal'], avoid: [] },
+    { name: 'Thoracic spine rotation', equip: ['peso_corporal'], avoid: [] },
+    { name: 'World\'s greatest stretch', equip: ['peso_corporal'], avoid: [] },
+    { name: 'Posición del niño (yoga)', equip: ['peso_corporal'], avoid: [] },
+    { name: 'Cobra (yoga)', equip: ['peso_corporal'], avoid: [] },
+    { name: 'Perro boca abajo', equip: ['peso_corporal'], avoid: [] },
+    { name: 'Estiramiento de flexores de cadera', equip: ['peso_corporal'], avoid: [] },
+    { name: 'Movilidad de tobillo (rodilla a pared)', equip: ['peso_corporal'], avoid: [] },
+    { name: 'Pasos del oso (bear crawl)', equip: ['peso_corporal'], avoid: ['rodilla'] },
+    { name: 'Banded pull-aparts (calentamiento)', equip: ['bandas'], avoid: [] },
+    { name: 'Dislocaciones con palo/banda', equip: ['bandas'], avoid: ['hombro'] }
+  ]
+};
+
+const SPLITS = {
+  2: [
+    { name: 'Día 1 - Tren superior', focus: 'Pecho, espalda, hombros, brazos', groups: ['pecho','espalda','hombro','brazo','core'] },
+    { name: 'Día 2 - Tren inferior + core', focus: 'Piernas, glúteos, abdomen', groups: ['pierna','pierna','core','core'] }
+  ],
+  3: [
+    { name: 'Día 1 - Empuje', focus: 'Pecho, hombros, tríceps', groups: ['pecho','pecho','hombro','brazo','core'] },
+    { name: 'Día 2 - Tracción', focus: 'Espalda, bíceps', groups: ['espalda','espalda','espalda','brazo','core'] },
+    { name: 'Día 3 - Pierna', focus: 'Cuádriceps, glúteos, femoral', groups: ['pierna','pierna','pierna','pierna','core'] }
+  ],
+  4: [
+    { name: 'Día 1 - Pecho y tríceps', focus: 'Empuje horizontal/vertical', groups: ['pecho','pecho','pecho','brazo','brazo'] },
+    { name: 'Día 2 - Espalda y bíceps', focus: 'Tracción vertical/horizontal', groups: ['espalda','espalda','espalda','brazo','brazo'] },
+    { name: 'Día 3 - Pierna', focus: 'Cuádriceps, glúteos, femoral', groups: ['pierna','pierna','pierna','pierna','core'] },
+    { name: 'Día 4 - Hombros y core', focus: 'Hombros, abdomen', groups: ['hombro','hombro','hombro','core','core'] }
+  ],
+  5: [
+    { name: 'Día 1 - Pecho', focus: 'Empuje horizontal', groups: ['pecho','pecho','pecho','pecho','core'] },
+    { name: 'Día 2 - Espalda', focus: 'Tracción', groups: ['espalda','espalda','espalda','espalda','core'] },
+    { name: 'Día 3 - Pierna', focus: 'Cuádriceps y glúteos', groups: ['pierna','pierna','pierna','pierna','core'] },
+    { name: 'Día 4 - Hombros', focus: 'Empuje vertical', groups: ['hombro','hombro','hombro','hombro','core'] },
+    { name: 'Día 5 - Brazos', focus: 'Bíceps y tríceps', groups: ['brazo','brazo','brazo','brazo','core'] }
+  ],
+  6: [
+    { name: 'Día 1 - Empuje (fuerza)', focus: 'Pecho, hombros, tríceps', groups: ['pecho','pecho','hombro','brazo','core'] },
+    { name: 'Día 2 - Tracción (fuerza)', focus: 'Espalda y bíceps', groups: ['espalda','espalda','espalda','brazo','core'] },
+    { name: 'Día 3 - Pierna (fuerza)', focus: 'Cuádriceps y glúteos', groups: ['pierna','pierna','pierna','core'] },
+    { name: 'Día 4 - Empuje (volumen)', focus: 'Pecho, hombros, tríceps', groups: ['pecho','hombro','hombro','brazo','core'] },
+    { name: 'Día 5 - Tracción (volumen)', focus: 'Espalda y bíceps', groups: ['espalda','espalda','brazo','brazo','core'] },
+    { name: 'Día 6 - Pierna (volumen)', focus: 'Femoral y glúteos', groups: ['pierna','pierna','pierna','core'] }
+  ]
+};
+
+function getSetsReps(goal, group) {
+  const isCore = group === 'core';
+  const isMov = group === 'movilidad';
+  if (isMov) return '2 x 30-45 seg';
+  if (isCore) {
+    if (goal === 'fuerza') return '3 x 10-12';
+    return '3 x 12-20';
+  }
+  switch (goal) {
+    case 'fuerza': return '5 x 3-5 (descanso 3 min)';
+    case 'hipertrofia': return '4 x 8-12 (descanso 60-90 seg)';
+    case 'perdida_grasa': return '3 x 12-15 (descanso 45 seg)';
+    case 'resistencia': return '3 x 15-20 (descanso 30 seg)';
+    case 'tonificacion': return '3 x 12-15 (descanso 60 seg)';
+    case 'rehabilitacion': return '2-3 x 12-15 (controlado)';
+    default: return '3 x 10-12';
+  }
+}
+
+function pickExercises(group, equipment, injuries, count, used) {
+  const pool = EXERCISE_DB[group] || [];
+  let candidates = pool.filter(ex => {
+    const equipOk = ex.equip.some(e => equipment.includes(e)) ||
+                    (equipment.includes('peso_corporal') && ex.equip.includes('peso_corporal'));
+    const safe = !ex.avoid.some(a => injuries.includes(a));
+    return equipOk && safe && !used.has(ex.name);
+  });
+  if (candidates.length === 0) {
+    candidates = pool.filter(ex => {
+      const equipOk = ex.equip.some(e => equipment.includes(e)) ||
+                      (equipment.includes('peso_corporal') && ex.equip.includes('peso_corporal'));
+      const safe = !ex.avoid.some(a => injuries.includes(a));
+      return equipOk && safe;
+    });
+  }
+  candidates.sort(() => Math.random() - 0.5);
+  const selected = candidates.slice(0, count);
+  selected.forEach(ex => used.add(ex.name));
+  return selected;
+}
+
+const GEMINI_KEY = 'AIzaSyAkuy5sZnKpPI6tx3jF4S47m8hRe9YMHbU';
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`;
+
+const GOAL_LABELS = {
+  hipertrofia: 'Hipertrofia (aumento de masa muscular)',
+  fuerza: 'Fuerza máxima',
+  perdida_grasa: 'Pérdida de grasa / definición',
+  resistencia: 'Resistencia física',
+  tonificacion: 'Tonificación general',
+  rehabilitacion: 'Rehabilitación y movilidad'
+};
+
+const EQUIP_LABELS = {
+  mancuernas: 'mancuernas', barra: 'barra olímpica', discos: 'discos',
+  banco: 'banco plano/inclinado', rack: 'rack/jaula', poleas: 'poleas/cables',
+  maquinas: 'máquinas guiadas', kettlebell: 'kettlebells', bandas: 'bandas elásticas',
+  trx: 'TRX/suspensión', cardio: 'máquinas de cardio', landmine: 'landmine',
+  medicine_ball: 'balón medicinal', barra_dominadas: 'barra de dominadas',
+  peso_corporal: 'solo peso corporal'
+};
+
+const INJURY_LABELS = {
+  rodilla: 'rodilla', hombro: 'hombro', espalda_baja: 'espalda baja (lumbar)',
+  espalda_alta: 'espalda alta / cervical', codo: 'codo / muñeca',
+  cadera: 'cadera', tobillo: 'tobillo'
+};
+
+function buildPrompt() {
+  const injuries = state.injuries.includes('ninguna') ? [] : state.injuries;
+  const equipList = state.equipment
+    .filter(e => e !== 'todo')
+    .map(e => EQUIP_LABELS[e] || e)
+    .join(', ');
+  const injuryList = injuries.map(i => INJURY_LABELS[i] || i).join(', ') || 'ninguna';
+
+  return `Sos un entrenador personal experto. Generá una rutina de gimnasio en español para la siguiente persona:
+
+DATOS:
+- Peso: ${state.weight} kg
+- Altura: ${state.height} cm
+- IMC: ${(state.weight / Math.pow(state.height/100, 2)).toFixed(1)}
+- Objetivo: ${GOAL_LABELS[state.goal]}
+- Lesiones / limitaciones: ${injuryList}${state.injuryNote ? ` (detalle: ${state.injuryNote})` : ''}
+- Equipamiento disponible: ${equipList}
+- Días de entrenamiento por semana: ${state.days}
+
+INSTRUCCIONES IMPORTANTES:
+- Adaptá TODOS los ejercicios a las lesiones indicadas. Evitá ejercicios contraindicados.
+- Usá SOLO el equipamiento disponible.
+- Ajustá series, repeticiones y descansos al objetivo.
+- Distribuí los días según la frecuencia y el objetivo (push/pull/legs, full body, etc.).
+- Incluí una nota de consejo al final de cada día (tips de ejecución o advertencia).
+
+Respondé ÚNICAMENTE con un JSON válido con esta estructura exacta (sin texto adicional, sin markdown):
+{
+  "split_nombre": "nombre del split elegido",
+  "consejo_general": "un consejo general de 1-2 oraciones para esta persona",
+  "dias": [
+    {
+      "nombre": "Día 1 - nombre",
+      "enfoque": "grupos musculares trabajados",
+      "ejercicios": [
+        {
+          "nombre": "nombre del ejercicio",
+          "series_reps": "ej: 4 x 8-10",
+          "descanso": "ej: 90 seg",
+          "nota": "tip breve de ejecución (opcional)"
+        }
+      ],
+      "consejo_dia": "tip o advertencia para este día"
+    }
+  ]
+}`;
+}
+
+function renderSummary(injuries) {
+  const bmi = (state.weight / Math.pow(state.height/100, 2)).toFixed(1);
+  $('#summary').innerHTML = `
+    <div class="summary-row"><span>Peso / Altura</span><span>${state.weight} kg · ${state.height} cm</span></div>
+    <div class="summary-row"><span>IMC</span><span>${bmi}</span></div>
+    <div class="summary-row"><span>Objetivo</span><span>${GOAL_LABELS[state.goal]}</span></div>
+    <div class="summary-row"><span>Frecuencia</span><span>${state.days} días/semana</span></div>
+    <div class="summary-row"><span>Lesiones</span><span>${injuries.length ? injuries.map(i => INJURY_LABELS[i]||i).join(', ') : 'Ninguna'}</span></div>
+  `;
+}
+
+function renderGeminiRoutine(data) {
+  const injuries = state.injuries.includes('ninguna') ? [] : state.injuries;
+  renderSummary(injuries);
+
+  let warningsHTML = '';
+  if (injuries.length > 0) {
+    warningsHTML = `<div class="warning">⚠ Rutina adaptada para lesiones en: ${injuries.map(i => INJURY_LABELS[i]||i).join(', ')}. Consultá siempre con un kinesiólogo antes de empezar.</div>`;
+  }
+  $('#warnings').innerHTML = warningsHTML;
+
+  if (data.consejo_general) {
+    $('#warnings').innerHTML += `<div class="ai-tip">${data.consejo_general}</div>`;
+  }
+
+  $('#routine').innerHTML = data.dias.map(day => {
+    const exHTML = day.ejercicios.map(ex => `
+      <div class="exercise">
+        <div class="exercise-info">
+          <span class="exercise-name">${ex.nombre}</span>
+          ${ex.nota ? `<span class="exercise-note">${ex.nota}</span>` : ''}
+        </div>
+        <div class="exercise-right">
+          <span class="exercise-sets">${ex.series_reps}</span>
+          ${ex.descanso ? `<span class="exercise-rest">${ex.descanso}</span>` : ''}
+        </div>
+      </div>`).join('');
+
+    return `<div class="routine-day">
+      <h3>${day.nombre}</h3>
+      <div class="focus">${day.enfoque}</div>
+      ${exHTML}
+      ${day.consejo_dia ? `<div class="day-tip">💡 ${day.consejo_dia}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderFallbackRoutine() {
+  const injuries = state.injuries.includes('ninguna') ? [] : state.injuries;
+  const equipment = state.equipment.filter(e => e !== 'todo').length ? state.equipment.filter(e => e !== 'todo') : ['peso_corporal'];
+  const split = SPLITS[state.days];
+  const includeCardio = ['perdida_grasa','resistencia'].includes(state.goal);
+  const includeMobility = state.goal === 'rehabilitacion' || injuries.length > 0;
+
+  renderSummary(injuries);
+
+  let warningsHTML = `<div class="warning">⚠ Modo sin conexión: rutina generada localmente.${injuries.length ? ` Ejercicios adaptados para lesiones en: ${injuries.map(i=>INJURY_LABELS[i]||i).join(', ')}.` : ''}</div>`;
+  $('#warnings').innerHTML = warningsHTML;
+
+  $('#routine').innerHTML = split.map(day => {
+    const used = new Set();
+    const groupCounts = {};
+    day.groups.forEach(g => groupCounts[g] = (groupCounts[g] || 0) + 1);
+    let exercises = [];
+    Object.entries(groupCounts).forEach(([group, count]) => {
+      pickExercises(group, equipment, injuries, count, used).forEach(p => exercises.push({ ...p, group }));
+    });
+    if (includeCardio) pickExercises('cardio', equipment, injuries, 1, used).forEach(c => exercises.push({ ...c, group: 'cardio', cardioBlock: true }));
+    if (includeMobility) pickExercises('movilidad', equipment, injuries, 2, used).forEach(m => exercises.push({ ...m, group: 'movilidad' }));
+
+    const exHTML = exercises.map(ex => {
+      let setsReps = getSetsReps(state.goal, ex.group);
+      if (ex.cardioBlock) setsReps = state.goal === 'perdida_grasa' ? '15-20 min HIIT' : '20-30 min moderado';
+      return `<div class="exercise"><span class="exercise-name">${ex.name}</span><span class="exercise-sets">${setsReps}</span></div>`;
+    }).join('');
+
+    return `<div class="routine-day"><h3>${day.name}</h3><div class="focus">${day.focus}</div>${exHTML}</div>`;
+  }).join('');
+}
+
+async function generateRoutine() {
+  $('#loadingBox').style.display = 'block';
+  $('#resultBox').style.display = 'none';
+  $('#loadingBox').innerHTML = `<div class="spinner"></div><p>Generando tu rutina con IA...</p><p style="color:var(--muted);font-size:0.85rem;margin-top:8px">Analizando lesiones y objetivos</p>`;
+
+  try {
+    const res = await fetch(GEMINI_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: buildPrompt() }] }],
+        generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
+      })
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('Respuesta inválida de la IA');
+    const routine = JSON.parse(jsonMatch[0]);
+    renderGeminiRoutine(routine);
+
+  } catch (err) {
+    console.warn('Gemini error, usando fallback:', err);
+    renderFallbackRoutine();
+  }
+
+  $('#loadingBox').style.display = 'none';
+  $('#resultBox').style.display = 'block';
+
+  const restartBtn = document.createElement('button');
+  restartBtn.className = 'btn-secondary';
+  restartBtn.textContent = '↺ Generar otra rutina';
+  restartBtn.style.width = '100%';
+  restartBtn.style.marginTop = '16px';
+  restartBtn.onclick = () => location.reload();
+  $('#resultBox').appendChild(restartBtn);
+}
+</script>
+</body>
+</html>
