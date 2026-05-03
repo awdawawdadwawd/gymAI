@@ -298,6 +298,17 @@
     <p>Generador inteligente de rutinas personalizadas</p>
   </header>
 
+  <div id="keyPanel" class="card" style="margin-bottom:16px;padding:16px 20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+      <span style="font-size:0.88rem;color:var(--muted);">Groq API Key</span>
+      <div style="display:flex;gap:8px;flex:1;min-width:220px;max-width:400px;">
+        <input type="password" id="keyInput" placeholder="gsk_..." style="flex:1;padding:8px 12px;font-size:0.88rem;" />
+        <button class="btn-primary" onclick="saveKey()" style="padding:8px 14px;font-size:0.85rem;white-space:nowrap;">Guardar</button>
+      </div>
+    </div>
+    <div id="keyStatus" style="font-size:0.82rem;margin-top:6px;color:var(--muted);"></div>
+  </div>
+
   <div class="card">
     <div class="progress">
       <div class="progress-step active"></div>
@@ -456,11 +467,9 @@ function saveKey() {
 function updateKeyStatus() {
   const k = getGroqKey();
   if (k) {
-    $('#keyStatus').textContent = '✓ API key guardada';
-    $('#keyStatus').style.color = 'var(--ok)';
-    $('#keyInput').value = '';
-    $('#keyInput').placeholder = 'Key guardada — pegá una nueva para cambiarla';
+    $('#keyPanel').style.display = 'none';
   } else {
+    $('#keyPanel').style.display = 'block';
     $('#keyStatus').textContent = 'Sin key — la rutina usará el generador local';
     $('#keyStatus').style.color = 'var(--muted)';
   }
