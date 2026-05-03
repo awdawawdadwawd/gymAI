@@ -336,8 +336,8 @@
 
     <!-- Paso 3: Objetivo -->
     <div class="step" data-step="3">
-      <h2>Objetivo principal</h2>
-      <p class="subtitle">¿Qué querés lograr con tu entrenamiento?</p>
+      <h2>Objetivos</h2>
+      <p class="subtitle">Podés elegir más de uno</p>
       <div class="options-grid" id="goalGrid">
         <div class="option" data-value="hipertrofia">Hipertrofia (masa muscular)</div>
         <div class="option" data-value="fuerza">Fuerza máxima</div>
@@ -430,7 +430,7 @@ const state = {
   height: null,
   injuries: [],
   injuryNote: '',
-  goal: null,
+  goal: [],
   equipment: [],
   days: null
 };
@@ -486,7 +486,7 @@ function setupSingleSelect(gridId) {
 }
 
 setupMultiSelect('injuriesGrid', 'ninguna');
-setupSingleSelect('goalGrid');
+setupMultiSelect('goalGrid', null);
 setupEquipmentSelect();
 setupSingleSelect('daysGrid');
 setupSingleSelect('exCountGrid');
@@ -570,9 +570,9 @@ function validateStep(n) {
     state.injuryNote = $('#injuryNote').value.trim();
   }
   if (n === 3) {
-    const sel = $('#goalGrid .option.selected');
-    if (!sel) { alert('Seleccioná un objetivo'); return false; }
-    state.goal = sel.dataset.value;
+    const sel = $$('#goalGrid .option.selected');
+    if (!sel.length) { alert('Seleccioná al menos un objetivo'); return false; }
+    state.goal = Array.from(sel).map(o => o.dataset.value);
   }
   if (n === 4) {
     const sel = $$('#equipGrid .option.selected');
@@ -947,7 +947,7 @@ function buildPrompt() {
   const injuryList = injuries.map(i => INJURY_LABELS[i] || i).join(', ') || 'ninguna';
 
   return `Eres entrenador personal. Crea rutina de gimnasio en español. Responde SOLO JSON válido sin markdown.
-Datos: peso ${state.weight}kg, altura ${state.height}cm, objetivo: ${GOAL_LABELS[state.goal]}, lesiones: ${injuryList}${state.injuryNote ? ` (${state.injuryNote})` : ''}, equipo: ${equipList}, días/semana: ${state.days}, ejercicios por día: ${state.exercises}.
+Datos: peso ${state.weight}kg, altura ${state.height}cm, objetivo: ${state.goal.map(g => GOAL_LABELS[g]).join(' + ')}, lesiones: ${injuryList}${state.injuryNote ? ` (${state.injuryNote})` : ''}, equipo: ${equipList}, días/semana: ${state.days}, ejercicios por día: ${state.exercises}.
 Reglas: evita ejercicios contraindicados, usa solo el equipo listado, ajusta series/reps al objetivo.
 Estructura JSON requerida: {"split_nombre":"...","consejo_general":"...","dias":[{"nombre":"Día 1 - X","enfoque":"...","ejercicios":[{"nombre":"...","series_reps":"...","descanso":"...","nota":"..."}],"consejo_dia":"..."}]}`;
 }
@@ -957,7 +957,7 @@ function renderSummary(injuries) {
   $('#summary').innerHTML = `
     <div class="summary-row"><span>Peso / Altura</span><span>${state.weight} kg · ${state.height} cm</span></div>
     <div class="summary-row"><span>IMC</span><span>${bmi}</span></div>
-    <div class="summary-row"><span>Objetivo</span><span>${GOAL_LABELS[state.goal]}</span></div>
+    <div class="summary-row"><span>Objetivo</span><span>${state.goal.map(g => GOAL_LABELS[g]).join(' + ')}</span></div>
     <div class="summary-row"><span>Frecuencia</span><span>${state.days} días/semana</span></div>
     <div class="summary-row"><span>Lesiones</span><span>${injuries.length ? injuries.map(i => INJURY_LABELS[i]||i).join(', ') : 'Ninguna'}</span></div>
   `;
@@ -1003,8 +1003,8 @@ function renderFallbackRoutine() {
   const injuries = state.injuries.includes('ninguna') ? [] : state.injuries;
   const equipment = state.equipment.filter(e => e !== 'todo').length ? state.equipment.filter(e => e !== 'todo') : ['peso_corporal'];
   const split = SPLITS[state.days];
-  const includeCardio = ['perdida_grasa','resistencia'].includes(state.goal);
-  const includeMobility = state.goal === 'rehabilitacion' || injuries.length > 0;
+  const includeCardio = state.goal.some(g => ['perdida_grasa','resistencia'].includes(g));
+  const includeMobility = state.goal.includes('rehabilitacion') || injuries.length > 0;
 
   renderSummary(injuries);
 
@@ -1023,8 +1023,8 @@ function renderFallbackRoutine() {
     if (includeMobility) pickExercises('movilidad', equipment, injuries, 2, used).forEach(m => exercises.push({ ...m, group: 'movilidad' }));
 
     const exHTML = exercises.map(ex => {
-      let setsReps = getSetsReps(state.goal, ex.group);
-      if (ex.cardioBlock) setsReps = state.goal === 'perdida_grasa' ? '15-20 min HIIT' : '20-30 min moderado';
+      let setsReps = getSetsReps(state.goal[0], ex.group);
+      if (ex.cardioBlock) setsReps = state.goal.includes('perdida_grasa') ? '15-20 min HIIT' : '20-30 min moderado';
       return `<div class="exercise"><span class="exercise-name">${ex.name}</span><span class="exercise-sets">${setsReps}</span></div>`;
     }).join('');
 
