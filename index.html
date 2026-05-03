@@ -1095,16 +1095,11 @@ const DAY_LAYOUT = [
   { warmup: 55, exStart: 58, accStart: 66 },
 ];
 
-function buildExcelPrompt(currentDays) {
-  const injuries = state.injuries.includes('ninguna') ? [] : state.injuries;
-  const injuryList = injuries.map(i => INJURY_LABELS[i]||i).join(', ') || 'ninguna';
-  const ejercicios = currentDays.flatMap(d => (d.ejercicios||[]).map(e => e.n)).filter(Boolean);
-  return `Entrenador experto. JSON solo, sin texto extra.
-Perfil: ${state.weight}kg ${state.height}cm, obj:${state.goal.map(g=>GOAL_LABELS[g]).join('+')}, lesiones:${injuryList}${state.injuryNote?` "${state.injuryNote}"`:''}
-Ejercicios ya generados: ${ejercicios.join(', ')}
-Días:${state.days} Ej/día:${state.exercises}
-Por cada ejercicio: 4 microciclos (b=baja,m=media,ma=media-alta,a=alta), cada uno con s(series),r(reps),p(% 1RM).
-{"dias":[{"n":"Día 1","cal":"calentamiento 1 linea","ej":[{"n":"nombre","b":{"s":"3","r":"12","p":"65%"},"m":{"s":"3","r":"10","p":"70%"},"ma":{"s":"4","r":"8","p":"75%"},"a":{"s":"4","r":"6","p":"80%"}}],"acc":[{"n":"accesorio","b":{"s":"3","r":"12","p":"60%"},"m":{"s":"3","r":"10","p":"65%"},"ma":{"s":"3","r":"8","p":"70%"},"a":{"s":"3","r":"8","p":"72%"}}]}]}`;
+function buildOneDayExcelPrompt(dayNum, dayName, exercises) {
+  return `JSON solo, sin texto extra. Entrenamiento: ${dayName}
+Ejercicios: ${exercises.join(', ')}
+acc = 2 ejercicios accesorios. 4 microciclos por ejercicio: b=baja,m=media,ma=media-alta,a=alta.
+{"cal":"calentamiento 1 linea","ej":[{"n":"nombre","b":{"s":"3","r":"12","p":"65%"},"m":{"s":"3","r":"10","p":"70%"},"ma":{"s":"4","r":"8","p":"75%"},"a":{"s":"4","r":"6","p":"80%"}}],"acc":[{"n":"accesorio","b":{"s":"3","r":"12","p":"60%"},"m":{"s":"3","r":"10","p":"65%"},"ma":{"s":"3","r":"8","p":"70%"},"a":{"s":"3","r":"8","p":"72%"}}]}`;
 }
 
 function setCellVal(ws, ref, val) {
@@ -1127,55 +1122,60 @@ function fillMC(ws, row, band, mc) {
 async function downloadExcel() {
   const btn = $('#dlBtn');
   btn.disabled = true;
-  btn.innerHTML = '⏳ Generando planilla...';
 
   try {
     const routineData = window._lastRoutine;
     if (!routineData) throw new Error('No hay rutina generada');
 
-    const res = await fetch(GROQ_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getGroqKey()}` },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [{ role: 'user', content: buildExcelPrompt(routineData.dias) }],
-        temperature: 0.5,
-        max_tokens: 6000
-      })
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    const raw = data.choices?.[0]?.message?.content || '';
-    const match = raw.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error('JSON inválido');
-    const exData = JSON.parse(repairJSON(match[0]));
-
     const wb = XLSX.read(TEMPLATE_B64, { type: 'base64', cellStyles: true });
     const ws = wb.Sheets['Rutina'];
-
     const today = new Date().toLocaleDateString('es-AR');
     setCellVal(ws, 'A1', `Inicio de Rutina: ${today}`);
-    setCellVal(ws, 'A2', `Nombre: ${exData.nombre || 'Atleta'}`);
 
-    exData.dias.forEach((day, di) => {
-      if (di >= 5) return;
+    const dias = routineData.dias.slice(0, 5);
+    const BANDS = [['b','baja'],['m','media'],['ma','malt'],['a','alta']];
+
+    for (let di = 0; di < dias.length; di++) {
+      const day = dias[di];
+      btn.innerHTML = `⏳ Generando día ${di + 1}/${dias.length}...`;
+
+      const exercises = (day.ejercicios || []).map(e => e.n).filter(Boolean);
+      const prompt = buildOneDayExcelPrompt(di + 1, day.nombre || `Día ${di + 1}`, exercises);
+
+      const res = await fetch(GROQ_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getGroqKey()}` },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.5,
+          max_tokens: 2000
+        })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status} (día ${di + 1})`);
+      const data = await res.json();
+      const raw = data.choices?.[0]?.message?.content || '';
+      const match = raw.match(/\{[\s\S]*\}/);
+      if (!match) throw new Error(`JSON inválido día ${di + 1}`);
+      const dayData = JSON.parse(repairJSON(match[0]));
+
       const layout = DAY_LAYOUT[di];
-      setCellVal(ws, `B${layout.warmup}`, day.cal || '');
+      setCellVal(ws, `B${layout.warmup}`, dayData.cal || '');
 
-      (day.ej || []).slice(0, 7).forEach((ex, ei) => {
+      (dayData.ej || []).slice(0, 7).forEach((ex, ei) => {
         const row = layout.exStart + ei;
         setCellVal(ws, `B${row}`, ex.n || '');
-        ['baja','media','malt','alta'].forEach(band => fillMC(ws, row, band, ex[band]));
+        BANDS.forEach(([key, band]) => fillMC(ws, row, band, ex[key]));
       });
 
-      (day.acc || []).slice(0, 2).forEach((acc, ai) => {
+      (dayData.acc || []).slice(0, 2).forEach((acc, ai) => {
         const row = layout.accStart + ai;
         setCellVal(ws, `B${row}`, acc.n || '');
-        ['baja','media','malt','alta'].forEach(band => fillMC(ws, row, band, acc[band]));
+        BANDS.forEach(([key, band]) => fillMC(ws, row, band, acc[key]));
       });
-    });
+    }
 
-    XLSX.writeFile(wb, `rutina_${today.replace(/\//g,'-')}.xlsx`);
+    XLSX.writeFile(wb, `rutina_${today.replace(/\//g, '-')}.xlsx`);
     btn.innerHTML = '✓ Planilla descargada';
     btn.style.background = 'linear-gradient(135deg,#1d6f42,#2ea05a)';
   } catch (err) {
