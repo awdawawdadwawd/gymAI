@@ -963,11 +963,31 @@ const INJURY_LABELS = {
 
 function buildPrompt() {
   const injuries = state.injuries.includes('ninguna') ? [] : state.injuries;
-  const equipList = state.equipment
-    .filter(e => e !== 'todo')
-    .map(e => EQUIP_LABELS[e] || e)
-    .join(', ') || 'solo peso corporal';
   const injuryList = injuries.map(i => INJURY_LABELS[i] || i).join(', ') || 'ninguna';
+
+  const userEquip = state.equipment.filter(e => e !== 'todo');
+  const hasAll = state.equipment.includes('todo');
+  const equipList = hasAll
+    ? Object.values(EQUIP_LABELS).join(', ')
+    : (userEquip.map(e => EQUIP_LABELS[e] || e).join(', ') || 'solo peso corporal');
+
+  // Equipamiento que el usuario NO tiene (para prohibirlo explícitamente)
+  const ALL_EQUIP_KEYS = ['mancuernas','barra','discos','banco','rack','poleas','maquinas','kettlebell','bandas','trx','cardio','landmine','medicine_ball','barra_dominadas'];
+  const missingEquip = hasAll ? [] : ALL_EQUIP_KEYS.filter(k => !userEquip.includes(k));
+  const missingLabels = missingEquip.map(k => EQUIP_LABELS[k] || k);
+
+  // Ejercicios prohibidos según equipamiento faltante
+  const forbidden = [];
+  if (!hasAll) {
+    if (!userEquip.includes('cardio'))       forbidden.push('correr en cinta, bicicleta estática, elíptica, remo ergómetro');
+    if (!userEquip.includes('barra'))        forbidden.push('sentadilla con barra, peso muerto con barra, press banca con barra, dominadas con barra olímpica');
+    if (!userEquip.includes('mancuernas'))   forbidden.push('curl con mancuernas, press mancuernas, remo mancuerna');
+    if (!userEquip.includes('poleas'))       forbidden.push('jalón al pecho, cable cruce, face pull en polea, press polea');
+    if (!userEquip.includes('maquinas'))     forbidden.push('prensa de piernas, máquina de pec, máquina de extensión, máquina de curl');
+    if (!userEquip.includes('kettlebell'))   forbidden.push('swing con kettlebell, turkish get-up');
+    if (!userEquip.includes('trx'))          forbidden.push('remo en TRX, fondos en TRX');
+    if (!userEquip.includes('barra_dominadas')) forbidden.push('dominadas, pull-ups, chin-ups');
+  }
 
   return `Sos un entrenador personal. Genera una rutina de gimnasio en español. Responde ÚNICAMENTE con JSON válido, sin markdown ni texto extra.
 
@@ -976,20 +996,29 @@ DATOS DEL USUARIO:
 - Altura: ${state.height} cm
 - Objetivo: ${state.goal.map(g => GOAL_LABELS[g]).join(', ')}
 - Lesiones: ${injuryList}${state.injuryNote ? ` (${state.injuryNote})` : ''}
-- Equipamiento disponible: ${equipList}
 - Días de entrenamiento por semana: ${state.days}
 - Ejercicios principales por día: ${state.exercises}
 
-REGLAS IMPORTANTES:
-- Genera exactamente ${state.days} días de entrenamiento.
-- Cada día tiene exactamente ${state.exercises} ejercicios en el array "ejercicios".
-- El campo "cal" es la entrada en calor de ese día: 2-3 actividades concretas con series/tiempo. IMPORTANTE: la entrada en calor debe usar SOLO el equipamiento disponible (${equipList}). Si no hay máquinas de cardio, usar movilidad articular, activación muscular y ejercicios sin equipo (rotaciones, círculos de cadera, sentadillas de activación, etc). NO sugerir caminata en cinta, bici fija ni ninguna máquina que no esté en el equipamiento disponible.
-- Los nombres de ejercicios ("n") son solo el nombre del ejercicio, sin incluir pesos ni medidas del usuario.
-- El campo "s" es series x repeticiones (ej: "4x8-10", "3x12").
-- Adaptar ejercicios al equipamiento disponible y evitar zonas lesionadas.
+EQUIPAMIENTO DISPONIBLE (USAR SOLO ESTO):
+${equipList}
 
-FORMATO JSON (respetar exactamente estas claves):
-{"dias":[{"nombre":"Día 1 - Pecho y Tríceps","cal":"2x10 rotacion hombro, 2x15 apertura de pecho, 2x10 sentadilla de activacion","ejercicios":[{"n":"Press de banca con barra","s":"4x8-10"},{"n":"Aperturas con mancuernas","s":"3x12"}]}]}`;
+${missingLabels.length ? `EQUIPAMIENTO QUE NO TIENE (PROHIBIDO USAR):
+${missingLabels.join(', ')}` : ''}
+
+${forbidden.length ? `EJERCICIOS PROHIBIDOS (el usuario no tiene el equipo necesario):
+${forbidden.join('; ')}` : ''}
+
+REGLAS:
+1. TODOS los ejercicios (principales y calentamiento) deben poder realizarse con el equipamiento listado arriba. Si un ejercicio requiere algo que no está en esa lista, NO lo incluyas.
+2. Genera exactamente ${state.days} días de entrenamiento.
+3. Cada día tiene exactamente ${state.exercises} ejercicios en el array "ejercicios".
+4. El campo "cal" es la entrada en calor: 2-3 actividades concretas con series/tiempo, usando solo el equipamiento disponible.
+5. Los nombres de ejercicios son solo el nombre, sin pesos ni medidas del usuario.
+6. El campo "s" es series x repeticiones (ej: "4x8-10", "3x12").
+7. Respetar lesiones y evitar ejercicios que afecten las zonas indicadas.
+
+FORMATO JSON:
+{"dias":[{"nombre":"Día 1 - Pecho y Tríceps","cal":"2x10 rotacion hombro, 2x15 apertura de pecho, 2x10 sentadilla activacion","ejercicios":[{"n":"Nombre del ejercicio","s":"4x8-10"}]}]}`;
 }
 
 function renderSummary(injuries) {
