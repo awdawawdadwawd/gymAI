@@ -1075,6 +1075,18 @@ async function generateRoutine() {
 
 // ── EXCEL GENERATION ──────────────────────────────────────────────────────
 
+function repairJSON(str) {
+  // Cierra llaves/corchetes abiertos si el JSON fue cortado
+  let s = str.trim();
+  const opens = (s.match(/\{/g)||[]).length - (s.match(/\}/g)||[]).length;
+  const openArr = (s.match(/\[/g)||[]).length - (s.match(/\]/g)||[]).length;
+  // Eliminar trailing comas antes de cierre
+  s = s.replace(/,\s*([}\]])/g, '$1');
+  for (let i = 0; i < openArr; i++) s += ']';
+  for (let i = 0; i < opens; i++) s += '}';
+  return s;
+}
+
 const DAY_LAYOUT = [
   { warmup: 3,  exStart: 6,  accStart: 14 },
   { warmup: 16, exStart: 19, accStart: 27 },
@@ -1131,7 +1143,8 @@ async function downloadExcel() {
       body: JSON.stringify({
         model: 'llama-3.3-70b-versatile',
         messages: [{ role: 'user', content: buildExcelPrompt(routineData.dias) }],
-        temperature: 0.5
+        temperature: 0.5,
+        max_tokens: 6000
       })
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1139,7 +1152,7 @@ async function downloadExcel() {
     const raw = data.choices?.[0]?.message?.content || '';
     const match = raw.match(/\{[\s\S]*\}/);
     if (!match) throw new Error('JSON inválido');
-    const exData = JSON.parse(match[0]);
+    const exData = JSON.parse(repairJSON(match[0]));
 
     const wb = XLSX.read(TEMPLATE_B64, { type: 'base64', cellStyles: true });
     const ws = wb.Sheets['Rutina'];
