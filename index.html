@@ -948,10 +948,9 @@ function buildPrompt() {
     .join(', ');
   const injuryList = injuries.map(i => INJURY_LABELS[i] || i).join(', ') || 'ninguna';
 
-  return `Eres entrenador personal. Crea rutina de gimnasio en español. Responde SOLO JSON válido sin markdown.
-Datos: peso ${state.weight}kg, altura ${state.height}cm, objetivo: ${state.goal.map(g => GOAL_LABELS[g]).join(' + ')}, lesiones: ${injuryList}${state.injuryNote ? `, descripción: "${state.injuryNote}"` : ''}, equipo: ${equipList}, días/semana: ${state.days}, ejercicios por día: ${state.exercises}.
-Reglas: evita ejercicios contraindicados, usa solo el equipo listado, ajusta series/reps al objetivo.
-Estructura JSON requerida: {"split_nombre":"...","consejo_general":"...","dias":[{"nombre":"Día 1 - X","enfoque":"...","ejercicios":[{"nombre":"...","series_reps":"...","descanso":"...","nota":"..."}],"consejo_dia":"..."}]}`;
+  return `Entrenador personal. Rutina en español. SOLO JSON sin markdown.
+P:${state.weight}kg H:${state.height}cm Obj:${state.goal.map(g=>GOAL_LABELS[g]).join('+')} Lesiones:${injuryList}${state.injuryNote?` "${state.injuryNote}"`:''}  Equipo:${equipList} Días:${state.days} Ejercicios/día:${state.exercises}
+JSON:{"dias":[{"nombre":"Día 1 - X","ejercicios":[{"n":"nombre","s":"4x8-10"}]}]}`;
 }
 
 function renderSummary(injuries) {
@@ -962,6 +961,7 @@ function renderSummary(injuries) {
     <div class="summary-row"><span>Objetivo</span><span>${state.goal.map(g => GOAL_LABELS[g]).join(' + ')}</span></div>
     <div class="summary-row"><span>Frecuencia</span><span>${state.days} días/semana</span></div>
     <div class="summary-row"><span>Lesiones</span><span>${injuries.length ? injuries.map(i => INJURY_LABELS[i]||i).join(', ') : 'Ninguna'}</span></div>
+    ${state.injuryNote ? `<div class="summary-row"><span>Detalle lesión</span><span style="text-align:right;max-width:70%">${state.injuryNote}</span></div>` : ''}
   `;
 }
 
@@ -975,28 +975,15 @@ function renderGeminiRoutine(data) {
   }
   $('#warnings').innerHTML = warningsHTML;
 
-  if (data.consejo_general) {
-    $('#warnings').innerHTML += `<div class="ai-tip">${data.consejo_general}</div>`;
-  }
-
   $('#routine').innerHTML = data.dias.map(day => {
     const exHTML = day.ejercicios.map(ex => `
       <div class="exercise">
-        <div class="exercise-info">
-          <span class="exercise-name">${ex.nombre}</span>
-          ${ex.nota ? `<span class="exercise-note">${ex.nota}</span>` : ''}
-        </div>
-        <div class="exercise-right">
-          <span class="exercise-sets">${ex.series_reps}</span>
-          ${ex.descanso ? `<span class="exercise-rest">${ex.descanso}</span>` : ''}
-        </div>
+        <span class="exercise-name">${ex.n}</span>
+        <span class="exercise-sets">${ex.s}</span>
       </div>`).join('');
-
     return `<div class="routine-day">
       <h3>${day.nombre}</h3>
-      <div class="focus">${day.enfoque}</div>
       ${exHTML}
-      ${day.consejo_dia ? `<div class="day-tip">💡 ${day.consejo_dia}</div>` : ''}
     </div>`;
   }).join('');
 }
