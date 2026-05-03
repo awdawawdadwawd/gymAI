@@ -1098,17 +1098,13 @@ const DAY_LAYOUT = [
 function buildExcelPrompt(currentDays) {
   const injuries = state.injuries.includes('ninguna') ? [] : state.injuries;
   const injuryList = injuries.map(i => INJURY_LABELS[i]||i).join(', ') || 'ninguna';
-  const dayNames = currentDays.map(d => d.nombre).join(', ');
-  return `Eres entrenador. Para esta rutina genera datos para planilla Excel con 4 microciclos de intensidad.
-Perfil: ${state.weight}kg, ${state.height}cm, obj:${state.goal.map(g=>GOAL_LABELS[g]).join('+')}, lesiones:${injuryList}${state.injuryNote?` "${state.injuryNote}"`:''}
-Días generados: ${dayNames}
-Días/sem:${state.days} Ejercicios/día:${state.exercises}
-
-Para cada día devuelve: calentamiento breve, ejercicios principales (exactamente ${state.exercises}, los mismos del perfil), 2 accesorios.
-Para cada ejercicio, 4 microciclos: baja(semana1-bajo esfuerzo), media, malt(media-alta), alta(máxima intensidad).
-Cada microciclo tiene: s(series), r(reps), t(tempo ej:"2010"), rir(reps en reserva), pct(% del 1RM ej:"65%").
-Solo responde JSON válido:
-{"nombre":"Atleta","dias":[{"n":"Día 1 - X","cal":"calentamiento breve","ej":[{"n":"ejercicio","baja":{"s":"3","r":"12","t":"2010","rir":"3","pct":"65%"},"media":{"s":"3","r":"10","t":"2010","rir":"2","pct":"70%"},"malt":{"s":"4","r":"8","t":"2010","rir":"1","pct":"75%"},"alta":{"s":"4","r":"6","t":"1010","rir":"1","pct":"80%"}}],"acc":[{"n":"accesorio","baja":{...},"media":{...},"malt":{...},"alta":{...}}]}]}`;
+  const ejercicios = currentDays.flatMap(d => (d.ejercicios||[]).map(e => e.n)).filter(Boolean);
+  return `Entrenador experto. JSON solo, sin texto extra.
+Perfil: ${state.weight}kg ${state.height}cm, obj:${state.goal.map(g=>GOAL_LABELS[g]).join('+')}, lesiones:${injuryList}${state.injuryNote?` "${state.injuryNote}"`:''}
+Ejercicios ya generados: ${ejercicios.join(', ')}
+Días:${state.days} Ej/día:${state.exercises}
+Por cada ejercicio: 4 microciclos (b=baja,m=media,ma=media-alta,a=alta), cada uno con s(series),r(reps),p(% 1RM).
+{"dias":[{"n":"Día 1","cal":"calentamiento 1 linea","ej":[{"n":"nombre","b":{"s":"3","r":"12","p":"65%"},"m":{"s":"3","r":"10","p":"70%"},"ma":{"s":"4","r":"8","p":"75%"},"a":{"s":"4","r":"6","p":"80%"}}],"acc":[{"n":"accesorio","b":{"s":"3","r":"12","p":"60%"},"m":{"s":"3","r":"10","p":"65%"},"ma":{"s":"3","r":"8","p":"70%"},"a":{"s":"3","r":"8","p":"72%"}}]}]}`;
 }
 
 function setCellVal(ws, ref, val) {
@@ -1120,12 +1116,12 @@ function fillMC(ws, row, band, mc) {
   if (!mc) return;
   const cols = { baja:['C','D','E','F','G','H'], media:['I','J','K','L','M','N'], malt:['O','P','Q','R','S','T'], alta:['U','V','W','X','Y','Z'] };
   const [cMC, cT, cS, cR, cRIR, cPCT] = cols[band];
-  setCellVal(ws, `${cMC}${row}`, 'S'+(Object.keys(cols).indexOf(band)+1));
-  setCellVal(ws, `${cT}${row}`,  mc.t   || '-');
-  setCellVal(ws, `${cS}${row}`,  mc.s   || '-');
-  setCellVal(ws, `${cR}${row}`,  mc.r   || '-');
-  setCellVal(ws, `${cRIR}${row}`,mc.rir || '-');
-  setCellVal(ws, `${cPCT}${row}`,mc.pct || '-');
+  setCellVal(ws, `${cMC}${row}`,  'S'+(Object.keys(cols).indexOf(band)+1));
+  setCellVal(ws, `${cT}${row}`,   '-');
+  setCellVal(ws, `${cS}${row}`,   mc.s || '-');
+  setCellVal(ws, `${cR}${row}`,   mc.r || '-');
+  setCellVal(ws, `${cRIR}${row}`, '-');
+  setCellVal(ws, `${cPCT}${row}`, mc.p || mc.pct || '-');
 }
 
 async function downloadExcel() {
