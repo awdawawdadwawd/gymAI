@@ -983,13 +983,13 @@ DATOS DEL USUARIO:
 REGLAS IMPORTANTES:
 - Genera exactamente ${state.days} días de entrenamiento.
 - Cada día tiene exactamente ${state.exercises} ejercicios en el array "ejercicios".
-- El campo "cal" es la entrada en calor de ese día: 2-3 actividades concretas con series/tiempo (ej: "5min bici suave, 2x15 rotacion hombro, 2x10 leg swing").
+- El campo "cal" es la entrada en calor de ese día: 2-3 actividades concretas con series/tiempo. IMPORTANTE: la entrada en calor debe usar SOLO el equipamiento disponible (${equipList}). Si no hay máquinas de cardio, usar movilidad articular, activación muscular y ejercicios sin equipo (rotaciones, círculos de cadera, sentadillas de activación, etc). NO sugerir caminata en cinta, bici fija ni ninguna máquina que no esté en el equipamiento disponible.
 - Los nombres de ejercicios ("n") son solo el nombre del ejercicio, sin incluir pesos ni medidas del usuario.
 - El campo "s" es series x repeticiones (ej: "4x8-10", "3x12").
 - Adaptar ejercicios al equipamiento disponible y evitar zonas lesionadas.
 
 FORMATO JSON (respetar exactamente estas claves):
-{"dias":[{"nombre":"Día 1 - Pecho y Tríceps","cal":"5min caminata, 2x15 rotacion hombro, 2x10 flexion codo","ejercicios":[{"n":"Press de banca con barra","s":"4x8-10"},{"n":"Aperturas con mancuernas","s":"3x12"}]}]}`;
+{"dias":[{"nombre":"Día 1 - Pecho y Tríceps","cal":"2x10 rotacion hombro, 2x15 apertura de pecho, 2x10 sentadilla de activacion","ejercicios":[{"n":"Press de banca con barra","s":"4x8-10"},{"n":"Aperturas con mancuernas","s":"3x12"}]}]}`;
 }
 
 function renderSummary(injuries) {
