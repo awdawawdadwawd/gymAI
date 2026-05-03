@@ -1125,12 +1125,28 @@ const DAY_LAYOUT = [
   { warmup: 55, exStart: 58, accStart: 66 },
 ];
 
-function buildOneDayExcelPrompt(dayNum, dayName, exercises) {
-  return `JSON solo, sin texto extra. Entrenamiento: ${dayName}
-Ejercicios: ${exercises.join(', ')}
-Genera entrada en calor específica para ESTOS ejercicios (2-3 items concretos con series/tiempo).
-acc = 2 ejercicios accesorios complementarios. 4 microciclos: b=baja,m=media,ma=media-alta,a=alta.
-{"cal":"5min bici + 2x15 rotacion hombro + 2x10 leg swing","ej":[{"n":"nombre","b":{"s":"3","r":"12","p":"65%"},"m":{"s":"3","r":"10","p":"70%"},"ma":{"s":"4","r":"8","p":"75%"},"a":{"s":"4","r":"6","p":"80%"}}],"acc":[{"n":"accesorio","b":{"s":"3","r":"12","p":"60%"},"m":{"s":"3","r":"10","p":"65%"},"ma":{"s":"3","r":"8","p":"70%"},"a":{"s":"3","r":"8","p":"72%"}}]}`;
+function buildAccessoryPrompt(dayName, exNames) {
+  return `JSON solo. Día: ${dayName}. Ejercicios principales: ${exNames.join(', ')}.
+Sugiere 2 accesorios complementarios con 4 microciclos (b=baja,m=media,ma=media-alta,a=alta).
+{"acc":[{"n":"nombre","b":{"s":"3","r":"12","p":"55%"},"m":{"s":"3","r":"10","p":"65%"},"ma":{"s":"3","r":"8","p":"72%"},"a":{"s":"3","r":"6","p":"78%"}}]}`;
+}
+
+function parseSeries(s) {
+  const m = (s || '').match(/(\d+)\s*[xX]\s*(\d+)(?:\s*-\s*(\d+))?/);
+  if (!m) return { sets: 3, rLow: 8, rHigh: 10 };
+  return { sets: parseInt(m[1]), rLow: parseInt(m[2]), rHigh: m[3] ? parseInt(m[3]) : parseInt(m[2]) };
+}
+
+function genMicrocycles(s) {
+  const { sets, rLow, rHigh } = parseSeries(s);
+  const add = (v, d) => Math.max(1, v + d);
+  const rng = (a, b) => a === b ? String(a) : `${a}-${b}`;
+  return {
+    b:  { s: String(Math.max(2, sets - 1)), r: rng(add(rLow, 3), Math.min(20, add(rHigh, 3))), p: '60%' },
+    m:  { s: String(sets),                 r: rng(rLow, rHigh),                                p: '70%' },
+    ma: { s: String(sets),                 r: rng(add(rLow, -2), add(rHigh, -2)),               p: '78%' },
+    a:  { s: String(Math.min(5, sets + 1)), r: rng(add(rLow, -4), Math.max(1, add(rHigh, -4))), p: '85%' }
+  };
 }
 
 function setCellVal(ws, ref, val) {
@@ -1171,43 +1187,49 @@ async function downloadExcel() {
 
     for (let di = 0; di < dias.length; di++) {
       const day = dias[di];
-      btn.innerHTML = `⏳ Generando día ${di + 1}/${dias.length}...`;
-
-      const exercises = (day.ejercicios || []).map(e => e.n).filter(Boolean);
-      const prompt = buildOneDayExcelPrompt(di + 1, day.nombre || `Día ${di + 1}`, exercises);
-
-      const res = await fetch(GROQ_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getGroqKey()}` },
-        body: JSON.stringify({
-          model: 'llama-3.1-8b-instant',
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.5,
-          max_tokens: 2000,
-          response_format: { type: 'json_object' }
-        })
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status} (día ${di + 1})`);
-      const data = await res.json();
-      const raw = data.choices?.[0]?.message?.content || '';
-      const match = raw.match(/\{[\s\S]*\}/);
-      if (!match) throw new Error(`JSON inválido día ${di + 1}`);
-      const dayData = JSON.parse(repairJSON(match[0]));
+      btn.innerHTML = `⏳ Procesando día ${di + 1}/${dias.length}...`;
 
       const layout = DAY_LAYOUT[di];
-      setCellVal(ws, `B${layout.warmup}`, dayData.cal || '');
 
-      (dayData.ej || []).slice(0, 7).forEach((ex, ei) => {
+      // Calentamiento: directo de la rutina, sin regenerar
+      setCellVal(ws, `B${layout.warmup}`, day.cal || '');
+
+      // Ejercicios: nombres y series EXACTOS de la rutina + microciclos por regla
+      (day.ejercicios || []).slice(0, 7).forEach((ex, ei) => {
         const row = layout.exStart + ei;
         setCellVal(ws, `B${row}`, ex.n || '');
-        BANDS.forEach(([key, band]) => fillMC(ws, row, band, ex[key]));
+        const mc = genMicrocycles(ex.s || '3x10');
+        BANDS.forEach(([key, band]) => fillMC(ws, row, band, mc[key]));
       });
 
-      (dayData.acc || []).slice(0, 2).forEach((acc, ai) => {
-        const row = layout.accStart + ai;
-        setCellVal(ws, `B${row}`, acc.n || '');
-        BANDS.forEach(([key, band]) => fillMC(ws, row, band, acc[key]));
-      });
+      // Accesorios: única llamada corta a IA (no están en la página, no hay inconsistencia)
+      const exNames = (day.ejercicios || []).map(e => e.n).filter(Boolean);
+      try {
+        const res = await fetch(GROQ_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getGroqKey()}` },
+          body: JSON.stringify({
+            model: 'llama-3.1-8b-instant',
+            messages: [{ role: 'user', content: buildAccessoryPrompt(day.nombre, exNames) }],
+            temperature: 0.5,
+            max_tokens: 400,
+            response_format: { type: 'json_object' }
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const raw = data.choices?.[0]?.message?.content || '';
+          const match = raw.match(/\{[\s\S]*\}/);
+          if (match) {
+            const accData = JSON.parse(repairJSON(match[0]));
+            (accData.acc || []).slice(0, 2).forEach((acc, ai) => {
+              const row = layout.accStart + ai;
+              setCellVal(ws, `B${row}`, acc.n || '');
+              BANDS.forEach(([key, band]) => fillMC(ws, row, band, acc[key]));
+            });
+          }
+        }
+      } catch(e) { /* accesorios opcionales, no bloquea */ }
     }
 
     XLSX.writeFile(wb, `rutina_${today.replace(/\//g, '-')}.xlsx`);
