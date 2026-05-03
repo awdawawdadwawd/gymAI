@@ -296,6 +296,7 @@
       <div class="progress-step"></div>
       <div class="progress-step"></div>
       <div class="progress-step"></div>
+      <div class="progress-step"></div>
     </div>
 
     <!-- Paso 1: Peso y altura -->
@@ -384,8 +385,22 @@
       </div>
     </div>
 
-    <!-- Paso 6: Resultado -->
+    <!-- Paso 6: Cantidad de ejercicios -->
     <div class="step" data-step="6">
+      <h2>Ejercicios por día</h2>
+      <p class="subtitle">¿Cuántos ejercicios querés por sesión?</p>
+      <div class="options-grid" id="exCountGrid">
+        <div class="option" data-value="3">3 ejercicios<br><small style="color:var(--muted)">Sesión corta</small></div>
+        <div class="option" data-value="4">4 ejercicios<br><small style="color:var(--muted)">Express</small></div>
+        <div class="option" data-value="5">5 ejercicios<br><small style="color:var(--muted)">Estándar</small></div>
+        <div class="option" data-value="6">6 ejercicios<br><small style="color:var(--muted)">Completo</small></div>
+        <div class="option" data-value="7">7 ejercicios<br><small style="color:var(--muted)">Intenso</small></div>
+        <div class="option" data-value="8">8 ejercicios<br><small style="color:var(--muted)">Avanzado</small></div>
+      </div>
+    </div>
+
+    <!-- Paso 7: Resultado -->
+    <div class="step" data-step="7">
       <h2>Tu rutina personalizada</h2>
       <p class="subtitle" id="resultSubtitle">Generada según tu perfil</p>
       <div id="loadingBox" class="loading">
@@ -409,7 +424,8 @@
 <script>
 const state = {
   step: 1,
-  totalSteps: 6,
+  totalSteps: 7,
+  exercises: null,
   weight: null,
   height: null,
   injuries: [],
@@ -473,6 +489,7 @@ setupMultiSelect('injuriesGrid', 'ninguna');
 setupSingleSelect('goalGrid');
 setupEquipmentSelect();
 setupSingleSelect('daysGrid');
+setupSingleSelect('exCountGrid');
 
 function setupEquipmentSelect() {
   $$('#equipGrid .option').forEach(opt => {
@@ -566,6 +583,11 @@ function validateStep(n) {
     const sel = $('#daysGrid .option.selected');
     if (!sel) { alert('Seleccioná cuántos días por semana'); return false; }
     state.days = parseInt(sel.dataset.value);
+  }
+  if (n === 6) {
+    const sel = $('#exCountGrid .option.selected');
+    if (!sel) { alert('Seleccioná cuántos ejercicios por día'); return false; }
+    state.exercises = parseInt(sel.dataset.value);
   }
   return true;
 }
@@ -925,7 +947,7 @@ function buildPrompt() {
   const injuryList = injuries.map(i => INJURY_LABELS[i] || i).join(', ') || 'ninguna';
 
   return `Eres entrenador personal. Crea rutina de gimnasio en español. Responde SOLO JSON válido sin markdown.
-Datos: peso ${state.weight}kg, altura ${state.height}cm, objetivo: ${GOAL_LABELS[state.goal]}, lesiones: ${injuryList}${state.injuryNote ? ` (${state.injuryNote})` : ''}, equipo: ${equipList}, días/semana: ${state.days}.
+Datos: peso ${state.weight}kg, altura ${state.height}cm, objetivo: ${GOAL_LABELS[state.goal]}, lesiones: ${injuryList}${state.injuryNote ? ` (${state.injuryNote})` : ''}, equipo: ${equipList}, días/semana: ${state.days}, ejercicios por día: ${state.exercises}.
 Reglas: evita ejercicios contraindicados, usa solo el equipo listado, ajusta series/reps al objetivo.
 Estructura JSON requerida: {"split_nombre":"...","consejo_general":"...","dias":[{"nombre":"Día 1 - X","enfoque":"...","ejercicios":[{"nombre":"...","series_reps":"...","descanso":"...","nota":"..."}],"consejo_dia":"..."}]}`;
 }
