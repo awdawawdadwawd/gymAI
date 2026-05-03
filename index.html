@@ -330,8 +330,8 @@
         <div class="option" data-value="cadera">Cadera</div>
         <div class="option" data-value="tobillo">Tobillo</div>
       </div>
-      <label for="injuryNote">Detalle adicional (opcional)</label>
-      <textarea id="injuryNote" placeholder="Ej: hernia L4-L5, evitar cargas axiales..."></textarea>
+      <label for="injuryNote">Detalle adicional <span style="color:var(--accent)">*</span> <small style="color:var(--muted);font-weight:400">(describí bien la lesión para una rutina más precisa)</small></label>
+      <textarea id="injuryNote" placeholder="Ej: hernia L4-L5, evitar cargas axiales, dolor al flexionar rodilla derecha..."></textarea>
     </div>
 
     <!-- Paso 3: Objetivo -->
@@ -568,6 +568,8 @@ function validateStep(n) {
     if (sel.length === 0) { alert('Seleccioná al menos una opción (o "Ninguna")'); return false; }
     state.injuries = Array.from(sel).map(o => o.dataset.value);
     state.injuryNote = $('#injuryNote').value.trim();
+    const hasInjury = !state.injuries.includes('ninguna') && state.injuries.length > 0;
+    if (hasInjury && !state.injuryNote) { alert('Por favor describí la lesión en el campo de detalle para generar una rutina segura.'); return false; }
   }
   if (n === 3) {
     const sel = $$('#goalGrid .option.selected');
@@ -947,7 +949,7 @@ function buildPrompt() {
   const injuryList = injuries.map(i => INJURY_LABELS[i] || i).join(', ') || 'ninguna';
 
   return `Eres entrenador personal. Crea rutina de gimnasio en español. Responde SOLO JSON válido sin markdown.
-Datos: peso ${state.weight}kg, altura ${state.height}cm, objetivo: ${state.goal.map(g => GOAL_LABELS[g]).join(' + ')}, lesiones: ${injuryList}${state.injuryNote ? ` (${state.injuryNote})` : ''}, equipo: ${equipList}, días/semana: ${state.days}, ejercicios por día: ${state.exercises}.
+Datos: peso ${state.weight}kg, altura ${state.height}cm, objetivo: ${state.goal.map(g => GOAL_LABELS[g]).join(' + ')}, lesiones: ${injuryList}${state.injuryNote ? `, descripción: "${state.injuryNote}"` : ''}, equipo: ${equipList}, días/semana: ${state.days}, ejercicios por día: ${state.exercises}.
 Reglas: evita ejercicios contraindicados, usa solo el equipo listado, ajusta series/reps al objetivo.
 Estructura JSON requerida: {"split_nombre":"...","consejo_general":"...","dias":[{"nombre":"Día 1 - X","enfoque":"...","ejercicios":[{"nombre":"...","series_reps":"...","descanso":"...","nota":"..."}],"consejo_dia":"..."}]}`;
 }
@@ -1064,13 +1066,16 @@ async function generateRoutine() {
   $('#loadingBox').style.display = 'none';
   $('#resultBox').style.display = 'block';
 
-  const restartBtn = document.createElement('button');
-  restartBtn.className = 'btn-secondary';
-  restartBtn.textContent = '↺ Generar otra rutina';
-  restartBtn.style.width = '100%';
-  restartBtn.style.marginTop = '16px';
-  restartBtn.onclick = () => location.reload();
-  $('#resultBox').appendChild(restartBtn);
+  if (!$('#restartBtn')) {
+    const restartBtn = document.createElement('button');
+    restartBtn.id = 'restartBtn';
+    restartBtn.className = 'btn-secondary';
+    restartBtn.textContent = '↺ Generar otra rutina';
+    restartBtn.style.width = '100%';
+    restartBtn.style.marginTop = '16px';
+    restartBtn.onclick = () => location.reload();
+    $('#resultBox').appendChild(restartBtn);
+  }
 }
 </script>
 </body>
