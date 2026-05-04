@@ -1244,12 +1244,13 @@ async function downloadExcel() {
         const sm = (attrs || '').match(/s="([^"]*)"/);
         return `<c r="${ref}"${sm ? ` s="${sm[1]}"` : ''} t="inlineStr"><is><t>${val}</t></is></c>`;
       };
-      // Intentar reemplazar celda existente (con contenido o self-closing)
-      let next = xml.replace(new RegExp(`<c r="${ref}"([^>]*)>[\\s\\S]*?</c>`), (_, a) => makeCell(a));
+      // 1. Self-closing PRIMERO: <c r="REF" s="X" t="inlineStr" />
+      let next = xml.replace(new RegExp(`<c r="${ref}"([^>]*)\\s*/>`), (_, a) => makeCell(a));
       if (next !== xml) { xml = next; return; }
-      next = xml.replace(new RegExp(`<c r="${ref}"([^>]*)\\s*/>`), (_, a) => makeCell(a));
+      // 2. Full element: <c r="REF" ...>...</c>
+      next = xml.replace(new RegExp(`<c r="${ref}"([^>]*[^/])>([\\s\\S]*?)</c>`), (_, a) => makeCell(a));
       if (next !== xml) { xml = next; return; }
-      // Si no existe la celda, insertar en la fila correspondiente
+      // 3. Si no existe la celda, insertar en la fila correspondiente
       const m = ref.match(/^([A-Z]+)(\d+)$/);
       if (!m) return;
       xml = xml.replace(new RegExp(`(<row r="${m[2]}"[^>]*>)([\\s\\S]*?)(</row>)`),
