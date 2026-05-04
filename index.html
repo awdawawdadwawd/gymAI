@@ -1012,13 +1012,18 @@ REGLAS:
 1. TODOS los ejercicios (principales y calentamiento) deben poder realizarse con el equipamiento listado arriba. Si un ejercicio requiere algo que no está en esa lista, NO lo incluyas.
 2. Genera exactamente ${state.days} días de entrenamiento.
 3. Cada día tiene exactamente ${state.exercises} ejercicios en el array "ejercicios".
-4. El campo "cal" es la entrada en calor: 2-3 actividades concretas con series/tiempo. DEBE ser específica para los músculos que se trabajan ESE día (si es día de pierna, calentar pierna: movilidad cadera, sentadilla de activación, etc; si es día de pecho, calentar pecho/hombro: rotación hombro, apertura de pecho, etc). NO poner calentamiento de brazos en un día de pierna, ni de pierna en un día de pecho. Usar solo el equipamiento disponible.
-5. Los nombres de ejercicios son solo el nombre, sin pesos ni medidas del usuario.
-6. El campo "s" es series x repeticiones (ej: "4x8-10", "3x12").
-7. Respetar lesiones y evitar ejercicios que afecten las zonas indicadas.
+4. COHERENCIA MUSCULAR (MUY IMPORTANTE): el nombre del día indica qué músculos se trabajan. TODOS los ejercicios de ese día deben ser exclusivamente para esos músculos. Ejemplos:
+   - "Pecho y Tríceps" → solo ejercicios de pecho y tríceps (press, aperturas, fondos, extensiones de tríceps). NUNCA peso muerto, sentadilla, remo ni ningún ejercicio de otro grupo.
+   - "Espalda y Bíceps" → solo remo, jalón, dominadas, curl. NUNCA press de banca ni sentadilla.
+   - "Piernas" → solo sentadilla, prensa, extensión, curl femoral, gemelos. NUNCA press de banca ni remo.
+   Si el día es "Full Body", entonces sí se pueden combinar grupos.
+5. El campo "cal" es la entrada en calor: 2-3 actividades concretas con series/tiempo, específicas para los músculos del día. Si es día de pierna, calentar cadera y rodilla. Si es día de pecho, calentar hombro y pecho. Usar solo el equipamiento disponible.
+6. Los nombres de ejercicios son solo el nombre, sin pesos ni medidas del usuario.
+7. El campo "s" es series x repeticiones (ej: "4x8-10", "3x12").
+8. Respetar lesiones y evitar ejercicios que afecten las zonas indicadas.
 
 FORMATO JSON:
-{"dias":[{"nombre":"Día 1 - Pecho y Tríceps","cal":"2x10 rotacion hombro, 2x15 apertura de pecho, 2x10 sentadilla activacion","ejercicios":[{"n":"Nombre del ejercicio","s":"4x8-10"}]}]}`;
+{"dias":[{"nombre":"Día 1 - Pecho y Tríceps","cal":"2x10 rotacion hombro, 2x15 apertura de pecho liviana, 2x12 extension triceps","ejercicios":[{"n":"Press de banca con barra","s":"4x8-10"},{"n":"Aperturas con mancuernas","s":"3x12"}]}]}`;
 }
 
 function renderSummary(injuries) {
@@ -1240,8 +1245,8 @@ async function downloadExcel() {
 
       const layout = DAY_LAYOUT[di];
 
-      // Calentamiento: directo de la rutina, sin regenerar
-      setCellVal(ws, `B${layout.warmup}`, day.cal || '');
+      // Calentamiento: celda mergeada desde A → escribir en A
+      setCellVal(ws, `A${layout.warmup}`, day.cal || '');
 
       // Ejercicios: nombres y series EXACTOS de la rutina + microciclos por regla
       (day.ejercicios || []).slice(0, 7).forEach((ex, ei) => {
@@ -1251,34 +1256,7 @@ async function downloadExcel() {
         BANDS.forEach(([key, band]) => fillMC(ws, row, band, mc[key]));
       });
 
-      // Accesorios: única llamada corta a IA (no están en la página, no hay inconsistencia)
-      const exNames = (day.ejercicios || []).map(e => e.n).filter(Boolean);
-      try {
-        const res = await fetch(GROQ_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getGroqKey()}` },
-          body: JSON.stringify({
-            model: 'llama-3.1-8b-instant',
-            messages: [{ role: 'user', content: buildAccessoryPrompt(day.nombre, exNames) }],
-            temperature: 0.5,
-            max_tokens: 400,
-            response_format: { type: 'json_object' }
-          })
-        });
-        if (res.ok) {
-          const data = await res.json();
-          const raw = data.choices?.[0]?.message?.content || '';
-          const match = raw.match(/\{[\s\S]*\}/);
-          if (match) {
-            const accData = JSON.parse(repairJSON(match[0]));
-            (accData.acc || []).slice(0, 2).forEach((acc, ai) => {
-              const row = layout.accStart + ai;
-              setCellVal(ws, `B${row}`, acc.n || '');
-              BANDS.forEach(([key, band]) => fillMC(ws, row, band, acc[key]));
-            });
-          }
-        }
-      } catch(e) { /* accesorios opcionales, no bloquea */ }
+      // Accesorios: se dejan vacíos (los completa el profesor manualmente)
     }
 
     XLSX.writeFile(wb, `rutina_${today.replace(/\//g, '-')}.xlsx`);
