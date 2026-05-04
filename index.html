@@ -1307,12 +1307,11 @@ async function generateRoutine() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
-    // Registrar y mostrar uso de tokens
+    // Registrar uso de tokens (solo admin dashboard)
     if (data.usage) {
       const pin  = data.usage.prompt_tokens     || 0;
       const pout = data.usage.completion_tokens || 0;
       trackUsage(pin, pout);
-      showTokenBadge(pin, pout);
     }
 
     const raw = data.choices?.[0]?.message?.content || '';
@@ -1522,37 +1521,6 @@ async function downloadExcel() {
 const PRICE_INPUT  = 0.11 / 1_000_000;   // $/token  (Llama 4 Scout)
 const PRICE_OUTPUT = 0.34 / 1_000_000;   // $/token
 
-// ── Token badge (visible post-generation) ────────────────────
-function showTokenBadge(pin, pout) {
-  const total = pin + pout;
-  const cost  = pin * PRICE_INPUT + pout * PRICE_OUTPUT;
-  let el = document.getElementById('tokenBadge');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'tokenBadge';
-    el.style.cssText = [
-      'margin-top:12px',
-      'padding:8px 14px',
-      'background:rgba(255,107,53,0.07)',
-      'border:1px solid rgba(255,107,53,0.2)',
-      'border-radius:8px',
-      'font-size:0.8rem',
-      'color:var(--muted)',
-      'display:flex',
-      'align-items:center',
-      'gap:6px',
-      'flex-wrap:wrap',
-    ].join(';');
-    $('#resultBox').appendChild(el);
-  }
-  el.innerHTML =
-    `<span style="color:var(--accent-2);font-size:0.9rem">⚡</span>` +
-    `Esta rutina usó <strong style="color:var(--text)">${total.toLocaleString()} tokens</strong>` +
-    `<span style="color:var(--border)">|</span>` +
-    `<span style="color:var(--muted)">in ${pin.toLocaleString()} · out ${pout.toLocaleString()}</span>` +
-    `<span style="color:var(--border)">|</span>` +
-    `Costo: <strong style="color:var(--accent-2)">$${cost.toFixed(5)}</strong>`;
-}
 
 // ── Admin Panel ──────────────────────────────────────────────
 const ADMIN_PASSWORD   = 'exodium2024';
