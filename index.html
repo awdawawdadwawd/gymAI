@@ -290,6 +290,7 @@
   }
 </style>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
 <div class="container">
@@ -1257,7 +1258,55 @@ async function downloadExcel() {
       // Accesorios: se dejan vacíos (los completa el profesor manualmente)
     }
 
-    XLSX.writeFile(wb, `rutina_${today.replace(/\//g, '-')}.xlsx`);
+    // Escribir workbook modificado como array
+    const outputArray = XLSX.write(wb, { type: 'array', bookType: 'xlsx', cellStyles: true });
+
+    // Cargar template original y output en JSZip para preservar el logo
+    const templateBytes = Uint8Array.from(atob(TEMPLATE_B64), c => c.charCodeAt(0));
+    const [templateZip, outputZip] = await Promise.all([
+      JSZip.loadAsync(templateBytes),
+      JSZip.loadAsync(outputArray)
+    ]);
+
+    // Copiar imagen y drawing del template al output
+    for (const [path, file] of Object.entries(templateZip.files)) {
+      if (!file.dir && (path.startsWith('xl/media/') || path.startsWith('xl/drawings/'))) {
+        outputZip.file(path, await file.async('arraybuffer'));
+      }
+    }
+
+    // Copiar relaciones del sheet (incluye referencia al drawing)
+    const sheetRelsFile = templateZip.file('xl/worksheets/_rels/sheet1.xml.rels');
+    if (sheetRelsFile) {
+      outputZip.file('xl/worksheets/_rels/sheet1.xml.rels', await sheetRelsFile.async('string'));
+    }
+
+    // Agregar referencia <drawing> al XML del sheet si no existe
+    let sheetXml = await outputZip.file('xl/worksheets/sheet1.xml').async('string');
+    if (!sheetXml.includes('<drawing')) {
+      sheetXml = sheetXml.replace('</worksheet>', '<drawing r:id="rId1"/></worksheet>');
+      outputZip.file('xl/worksheets/sheet1.xml', sheetXml);
+    }
+
+    // Actualizar [Content_Types].xml para incluir image/png y drawing
+    let ct = await outputZip.file('[Content_Types].xml').async('string');
+    if (!ct.includes('image/png'))
+      ct = ct.replace('</Types>', '<Default Extension="png" ContentType="image/png"/></Types>');
+    if (!ct.includes('drawing+xml'))
+      ct = ct.replace('</Types>', '<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>');
+    outputZip.file('[Content_Types].xml', ct);
+
+    // Generar blob final y descargar
+    const blob = await outputZip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `rutina_${today.replace(/\//g, '-')}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
     btn.innerHTML = '✓ Planilla descargada';
     btn.style.background = 'linear-gradient(135deg,#1d6f42,#2ea05a)';
   } catch (err) {
