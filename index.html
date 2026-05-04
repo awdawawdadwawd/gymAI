@@ -288,6 +288,138 @@
     header h1 { font-size: 1.7rem; }
     .card { padding: 20px; }
   }
+
+  /* ── Admin Panel ── */
+  #adminTrigger {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    opacity: 0;
+    z-index: 9000;
+  }
+  #adminOverlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+  }
+  #adminOverlay.open { display: flex; }
+  #adminModal {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    width: 100%;
+    max-width: 560px;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+  }
+  #adminModal h2 {
+    font-size: 1.3rem;
+    margin-bottom: 6px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  #adminModal .admin-subtitle {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-bottom: 20px;
+  }
+  .admin-stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .admin-stat {
+    background: var(--card-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .admin-stat .stat-label { font-size: 0.78rem; color: var(--muted); margin-bottom: 4px; }
+  .admin-stat .stat-value { font-size: 1.4rem; font-weight: 700; color: var(--text); }
+  .admin-stat .stat-value.accent { color: var(--accent-2); }
+  .admin-stat .stat-sub { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+  .admin-log-title {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 10px;
+  }
+  #adminLog {
+    max-height: 220px;
+    overflow-y: auto;
+    font-size: 0.82rem;
+  }
+  #adminLog table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  #adminLog th {
+    text-align: left;
+    color: var(--muted);
+    font-weight: 500;
+    padding: 4px 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  #adminLog td {
+    padding: 5px 6px;
+    border-bottom: 1px solid rgba(42,47,58,0.5);
+    color: var(--text);
+  }
+  #adminLog tr:last-child td { border-bottom: none; }
+  .admin-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 18px;
+  }
+  .admin-actions button {
+    flex: 1;
+    padding: 10px;
+    border-radius: 8px;
+    border: none;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .btn-admin-close {
+    background: var(--card-2);
+    border: 1px solid var(--border) !important;
+    color: var(--text);
+  }
+  .btn-admin-reset {
+    background: rgba(239,68,68,0.15);
+    border: 1px solid rgba(239,68,68,0.3) !important;
+    color: #f87171;
+  }
+  #adminPwBox {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  #adminPwBox input {
+    padding: 10px 14px;
+    background: var(--card-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 0.95rem;
+  }
+  #adminPwBox input:focus { outline: none; border-color: var(--accent); }
+  #adminPwError { color: #f87171; font-size: 0.82rem; display: none; }
 </style>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -1174,6 +1306,10 @@ async function generateRoutine() {
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
+
+    // Registrar uso de tokens
+    if (data.usage) trackUsage(data.usage.prompt_tokens || 0, data.usage.completion_tokens || 0);
+
     const raw = data.choices?.[0]?.message?.content || '';
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('Respuesta inválida de la IA');
@@ -1377,6 +1513,171 @@ async function downloadExcel() {
     btn.disabled = false;
   }
 }
+// ── Admin Panel ──────────────────────────────────────────────
+const ADMIN_PASSWORD   = 'exodium2024';
+const PRICE_INPUT      = 0.11 / 1_000_000;   // $/token
+const PRICE_OUTPUT     = 0.34 / 1_000_000;   // $/token
+const ADMIN_KEY        = 'gymAdminUsage';
+let adminUnlocked      = false;
+
+function trackUsage(promptTok, completionTok) {
+  const record = {
+    ts:  Date.now(),
+    pin: promptTok,
+    pout: completionTok,
+    cost: promptTok * PRICE_INPUT + completionTok * PRICE_OUTPUT
+  };
+  const history = JSON.parse(localStorage.getItem(ADMIN_KEY) || '[]');
+  history.push(record);
+  // Keep last 200 entries
+  if (history.length > 200) history.splice(0, history.length - 200);
+  localStorage.setItem(ADMIN_KEY, JSON.stringify(history));
+}
+
+function openAdminPanel() {
+  document.getElementById('adminOverlay').classList.add('open');
+  if (!adminUnlocked) {
+    document.getElementById('adminPwBox').style.display = 'flex';
+    document.getElementById('adminStats').style.display = 'none';
+    document.getElementById('adminPwInput').value = '';
+    document.getElementById('adminPwError').style.display = 'none';
+  } else {
+    showAdminStats();
+  }
+}
+
+function closeAdminPanel() {
+  document.getElementById('adminOverlay').classList.remove('open');
+}
+
+function checkAdminPassword() {
+  const val = document.getElementById('adminPwInput').value;
+  if (val === ADMIN_PASSWORD) {
+    adminUnlocked = true;
+    document.getElementById('adminPwBox').style.display = 'none';
+    showAdminStats();
+  } else {
+    document.getElementById('adminPwError').style.display = 'block';
+    document.getElementById('adminPwInput').value = '';
+    document.getElementById('adminPwInput').focus();
+  }
+}
+
+function showAdminStats() {
+  document.getElementById('adminStats').style.display = 'block';
+  const history = JSON.parse(localStorage.getItem(ADMIN_KEY) || '[]');
+  const totalRoutines   = history.length;
+  const totalInTok      = history.reduce((s, r) => s + r.pin,  0);
+  const totalOutTok     = history.reduce((s, r) => s + r.pout, 0);
+  const totalCost       = history.reduce((s, r) => s + r.cost, 0);
+  const avgCost         = totalRoutines > 0 ? totalCost / totalRoutines : 0;
+  const routinesPer1    = totalCost > 0 ? 1 / avgCost : 0;
+
+  document.getElementById('aStat1').textContent = totalRoutines;
+  document.getElementById('aStat2').textContent = '$' + totalCost.toFixed(4);
+  document.getElementById('aStat3').textContent = '$' + avgCost.toFixed(5);
+  document.getElementById('aStat4').textContent = routinesPer1 > 0 ? Math.round(routinesPer1) : '—';
+  document.getElementById('aStat5').textContent = (totalInTok + totalOutTok).toLocaleString();
+  document.getElementById('aStat6').textContent = (totalInTok  / Math.max(totalRoutines, 1)).toFixed(0);
+  document.getElementById('aStat7').textContent = (totalOutTok / Math.max(totalRoutines, 1)).toFixed(0);
+
+  // Log table (last 20, newest first)
+  const rows = [...history].reverse().slice(0, 20);
+  const tbody = rows.map(r => {
+    const d  = new Date(r.ts);
+    const ts = d.toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit' })
+             + ' '
+             + d.toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' });
+    return `<tr>
+      <td>${ts}</td>
+      <td>${r.pin.toLocaleString()}</td>
+      <td>${r.pout.toLocaleString()}</td>
+      <td>$${r.cost.toFixed(5)}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('adminLog').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Fecha</th><th>Tokens in</th><th>Tokens out</th><th>Costo</th>
+      </tr></thead>
+      <tbody>${tbody || '<tr><td colspan="4" style="color:var(--muted);text-align:center;padding:12px">Sin registros aún</td></tr>'}</tbody>
+    </table>`;
+}
+
+function resetAdminData() {
+  if (!confirm('¿Borrar todo el historial de uso? Esta acción no se puede deshacer.')) return;
+  localStorage.removeItem(ADMIN_KEY);
+  showAdminStats();
+}
+
+// Keyboard shortcut: Ctrl+Shift+A opens admin
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.shiftKey && e.key === 'A') { e.preventDefault(); openAdminPanel(); }
+});
 </script>
+
+<!-- Admin Panel Overlay -->
+<div id="adminOverlay" onclick="if(event.target===this)closeAdminPanel()">
+  <div id="adminModal">
+    <h2>⚙ Panel de Administración</h2>
+    <p class="admin-subtitle">Uso de tokens y costos — GymAI</p>
+
+    <!-- Password gate -->
+    <div id="adminPwBox">
+      <input type="password" id="adminPwInput" placeholder="Contraseña"
+             onkeydown="if(event.key==='Enter')checkAdminPassword()" autofocus />
+      <span id="adminPwError">Contraseña incorrecta</span>
+      <button class="btn-primary" onclick="checkAdminPassword()" style="padding:10px;border-radius:8px;border:none;font-weight:600;cursor:pointer;font-family:inherit;">Ingresar</button>
+    </div>
+
+    <!-- Stats (hidden until unlocked) -->
+    <div id="adminStats" style="display:none;">
+      <div class="admin-stat-grid">
+        <div class="admin-stat">
+          <div class="stat-label">Rutinas generadas</div>
+          <div class="stat-value" id="aStat1">0</div>
+        </div>
+        <div class="admin-stat">
+          <div class="stat-label">Costo total acumulado</div>
+          <div class="stat-value accent" id="aStat2">$0.0000</div>
+        </div>
+        <div class="admin-stat">
+          <div class="stat-label">Costo por rutina (promedio)</div>
+          <div class="stat-value" id="aStat3">$0.00000</div>
+          <div class="stat-sub">Llama 4 Scout · $0.11/M in · $0.34/M out</div>
+        </div>
+        <div class="admin-stat">
+          <div class="stat-label">Rutinas por dólar</div>
+          <div class="stat-value accent" id="aStat4">—</div>
+        </div>
+        <div class="admin-stat">
+          <div class="stat-label">Tokens totales usados</div>
+          <div class="stat-value" id="aStat5">0</div>
+        </div>
+        <div class="admin-stat">
+          <div class="stat-label">Tokens promedio / rutina</div>
+          <div class="stat-value" style="font-size:1rem;padding-top:4px">
+            <span style="color:var(--muted);font-size:0.78rem">IN </span><span id="aStat6">0</span>
+            &nbsp;
+            <span style="color:var(--muted);font-size:0.78rem">OUT </span><span id="aStat7">0</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-log-title">Últimas 20 generaciones</div>
+      <div id="adminLog"></div>
+
+      <div class="admin-actions">
+        <button class="btn-admin-close" onclick="closeAdminPanel()">Cerrar</button>
+        <button class="btn-admin-reset" onclick="resetAdminData()">🗑 Borrar historial</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden corner trigger (bottom-right) -->
+<div id="adminTrigger" onclick="openAdminPanel()" title=""></div>
+
 </body>
 </html>
