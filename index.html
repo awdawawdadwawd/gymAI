@@ -1161,7 +1161,7 @@ async function generateRoutine() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getGroqKey()}` },
       body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
+        model: 'llama-3.3-70b-versatile',
         messages: [
           { role: 'system', content: 'Eres un entrenador personal experto. Respondes ÚNICAMENTE con JSON válido siguiendo exactamente el formato indicado. Nunca incluyas texto fuera del JSON.' },
           { role: 'user', content: buildPrompt() }
