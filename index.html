@@ -1010,21 +1010,43 @@ ${missingLabels.join(', ')}` : ''}
 ${forbidden.length ? `EJERCICIOS PROHIBIDOS (el usuario no tiene el equipo necesario):
 ${forbidden.join('; ')}` : ''}
 
-REGLAS:
-1. TODOS los ejercicios (principales y calentamiento) deben poder realizarse con el equipamiento listado arriba. Si un ejercicio requiere algo que no está en esa lista, NO lo incluyas.
+CÓMO RAZONAR LA SELECCIÓN DE EJERCICIOS (seguir estos pasos en orden):
+
+PASO 1 — FILTRAR: De todo el catálogo, descartar inmediatamente cualquier ejercicio cuyo [req:] incluya equipamiento que el usuario NO tiene. Trabajar solo con el subconjunto viable.
+
+PASO 2 — PRIORIZAR SEGÚN OBJETIVO:
+  • Hipertrofia: elegir 2-3 ejercicios COMPUESTOS principales + 1-2 AISLATIVOS por grupo muscular. Variar ángulos (plano, inclinado, declinado). Priorizar barra y mancuernas sobre máquinas.
+  • Fuerza máxima: elegir ejercicios COMPUESTOS CON BARRA casi exclusivamente (sentadilla, peso muerto, press de banca con barra, press militar con barra, remo con barra). Mínimo de aislativos.
+  • Pérdida de grasa / definición: priorizar ejercicios MULTIARTICULARES que activan más masa muscular (sentadillas, peso muerto, remos, press). Evitar exceso de aislativos.
+  • Resistencia: ejercicios ejecutables en series largas con buena técnica. Preferir máquinas y mancuernas sobre barra libre para mayor control.
+  • Tonificación: mezcla equilibrada de compuestos e aislativos. Énfasis en contracción controlada. Mancuernas y máquinas como base.
+  • Rehabilitación: MÁQUINAS GUIADAS > mancuernas > barra. Evitar carga axial espinal (no sentadilla con barra, no peso muerto pesado). Movimiento controlado.
+
+PASO 3 — ORDENAR DENTRO DE CADA DÍA (jerarquía obligatoria):
+  Ejercicio 1: Compuesto principal (el más demandante del grupo: sentadilla, peso muerto, press de banca, press militar, dominadas, remo con barra)
+  Ejercicio 2: Compuesto secundario (variante o ángulo diferente del compuesto principal)
+  Ejercicios 3 en adelante: Complementarios e aislativos (aperturas, curls, extensiones, elevaciones)
+
+PASO 4 — GARANTIZAR VARIEDAD: Nunca incluir dos ejercicios casi idénticos en el mismo día. Cada ejercicio debe atacar el músculo desde un ángulo o mecanismo distinto al anterior. Ejemplos de lo que NO hacer: Curl con barra + Curl con barra EZ (mismo patrón), Press plano con barra + Press plano con mancuernas (mismo ángulo). En cambio SÍ está bien: Press plano + Press inclinado + Aperturas (distintos ángulos y mecanismos).
+
+PASO 5 — AJUSTAR SERIES/REPS AL OBJETIVO:
+  • Fuerza: 4-6 series × 3-6 reps (ej: "5x5", "4x3-5")
+  • Hipertrofia: 3-5 series × 6-12 reps (ej: "4x8-10", "3x10-12")
+  • Tonificación/Resistencia: 3-4 series × 12-20 reps (ej: "3x15", "4x12-15")
+  • Pérdida de grasa: 3-4 series × 10-15 reps (ej: "4x12", "3x15")
+  • Rehabilitación: 2-3 series × 12-15 reps con técnica impecable (ej: "3x12", "2x15")
+
+REGLAS ADICIONALES:
+1. TODOS los ejercicios deben poder realizarse con el equipamiento disponible.
 2. Genera exactamente ${state.days} días de entrenamiento.
 3. Cada día tiene exactamente ${state.exercises} ejercicios en el array "ejercicios".
-4. COHERENCIA MUSCULAR (MUY IMPORTANTE): el nombre del día indica qué músculos se trabajan. TODOS los ejercicios de ese día deben ser exclusivamente para esos músculos. Ejemplos:
-   - "Pecho y Tríceps" → solo ejercicios de pecho y tríceps (press, aperturas, fondos, extensiones de tríceps). NUNCA peso muerto, sentadilla, remo ni ningún ejercicio de otro grupo.
-   - "Espalda y Bíceps" → solo remo, jalón, dominadas, curl. NUNCA press de banca ni sentadilla.
-   - "Piernas" → solo sentadilla, prensa, extensión, curl femoral, gemelos. NUNCA press de banca ni remo.
-   Si el día es "Full Body", entonces sí se pueden combinar grupos.
-5. El campo "cal" es la entrada en calor: 2-3 ejercicios de movilidad/activación con series y tiempo, específicos para los músculos del día. Ejemplos: día de pecho → "2x15 rotación de hombro con banda, 2x12 apertura de pecho liviana, 2x10 extensión de tríceps liviana"; día de pierna → "2x10 sentadilla de peso corporal, 2x15 elevación de rodilla caminando, 2x20 círculo de cadera".
-6. Los nombres de ejercicios son solo el nombre, sin pesos ni medidas.
+4. COHERENCIA MUSCULAR: TODOS los ejercicios del día deben ser para los músculos indicados en el nombre del día. "Pecho y Tríceps" → SOLO pecho y tríceps. "Espalda y Bíceps" → SOLO espalda y bíceps. "Piernas" → SOLO piernas. Full Body → se combinan grupos.
+5. El campo "cal" es la entrada en calor: 2-3 ejercicios de movilidad/activación específicos para los músculos del día. Ejemplos: día de pecho → "2x15 rotación de hombro, 2x12 apertura de pecho liviana, 2x10 extensión de tríceps liviana"; día de pierna → "2x10 sentadilla corporal, 2x15 elevación de rodilla, 2x20 círculo de cadera".
+6. Nombres de ejercicios solo el nombre, sin pesos ni medidas.
 7. El campo "s" es series x repeticiones (ej: "4x8-10", "3x12").
 8. Respetar lesiones y evitar ejercicios que afecten las zonas indicadas.
-9. NOMBRES DE EJERCICIOS — REGLA CRÍTICA: Usar ÚNICAMENTE nombres del catálogo oficial que figura a continuación. PROHIBIDO inventar combinaciones o nombres que no aparezcan aquí.
-10. VERIFICACIÓN DE EQUIPAMIENTO POR EJERCICIO: Cada ejercicio del catálogo tiene una etiqueta [req: X] que indica el equipamiento que necesita. Antes de incluir cualquier ejercicio, verificar que TODO lo que figura en [req:] esté en la lista EQUIPAMIENTO DISPONIBLE. Si falta alguno, NO incluir ese ejercicio y elegir otro equivalente que sí sea posible con el equipamiento disponible. Ejemplos: Spider Curl [req: mancuernas+banco] → solo incluirlo si el usuario tiene AMBOS; Jalón al pecho [req: poleas] → solo si tiene poleas.
+9. USAR ÚNICAMENTE nombres del catálogo oficial. PROHIBIDO inventar nombres.
+10. VERIFICAR [req:] de cada ejercicio contra el equipamiento disponible antes de incluirlo.
 
 CATÁLOGO OFICIAL DE EJERCICIOS (elegir SIEMPRE de esta lista, sin inventar nombres):
 
