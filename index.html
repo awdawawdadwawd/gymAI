@@ -1262,31 +1262,28 @@ async function downloadExcel() {
     const outputArray = XLSX.write(wb, { type: 'array', bookType: 'xlsx', cellStyles: true });
 
     // Cargar template original y output en JSZip para preservar el logo
-    const templateBytes = Uint8Array.from(atob(TEMPLATE_B64), c => c.charCodeAt(0));
+    const templateBytes2 = Uint8Array.from(atob(TEMPLATE_B64), c => c.charCodeAt(0));
     const [templateZip, outputZip] = await Promise.all([
-      JSZip.loadAsync(templateBytes),
+      JSZip.loadAsync(templateBytes2),
       JSZip.loadAsync(outputArray)
     ]);
 
-    // Copiar imagen y drawing del template al output
-    for (const [path, file] of Object.entries(templateZip.files)) {
-      if (!file.dir && (path.startsWith('xl/media/') || path.startsWith('xl/drawings/'))) {
-        outputZip.file(path, await file.async('arraybuffer'));
-      }
+    // Copiar explícitamente los 3 archivos del logo
+    for (const p of ['xl/media/image1.png','xl/drawings/drawing1.xml','xl/drawings/_rels/drawing1.xml.rels']) {
+      const f = templateZip.file(p);
+      if (f) outputZip.file(p, await f.async('uint8array'));
     }
 
-    // Copiar relaciones del sheet (incluye referencia al drawing)
-    const sheetRelsFile = templateZip.file('xl/worksheets/_rels/sheet1.xml.rels');
-    if (sheetRelsFile) {
-      outputZip.file('xl/worksheets/_rels/sheet1.xml.rels', await sheetRelsFile.async('string'));
-    }
+    // Copiar relaciones del sheet (incluye rId1 → drawing)
+    const sheetRelsF = templateZip.file('xl/worksheets/_rels/sheet1.xml.rels');
+    if (sheetRelsF) outputZip.file('xl/worksheets/_rels/sheet1.xml.rels', await sheetRelsF.async('string'));
 
-    // Agregar referencia <drawing> al XML del sheet si no existe
+    // Forzar referencia <drawing> en el XML del sheet (siempre, con namespace completo)
     let sheetXml = await outputZip.file('xl/worksheets/sheet1.xml').async('string');
-    if (!sheetXml.includes('<drawing')) {
-      sheetXml = sheetXml.replace('</worksheet>', '<drawing r:id="rId1"/></worksheet>');
-      outputZip.file('xl/worksheets/sheet1.xml', sheetXml);
-    }
+    sheetXml = sheetXml.replace(/<drawing[^>]*\/?>/g, ''); // quitar cualquier drawing previo
+    sheetXml = sheetXml.replace('</worksheet>',
+      '<drawing xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:id="rId1"/></worksheet>');
+    outputZip.file('xl/worksheets/sheet1.xml', sheetXml);
 
     // Actualizar [Content_Types].xml para incluir image/png y drawing
     let ct = await outputZip.file('[Content_Types].xml').async('string');
