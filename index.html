@@ -1235,6 +1235,14 @@ async function downloadExcel() {
     const today = new Date().toLocaleDateString('es-AR');
     setCellVal(ws, 'A1', `Inicio de Rutina: ${today}`);
 
+    // Fondo oscuro en zona del logo (O1:Z2) para que el texto blanco sea visible
+    const darkFill = { patternType: 'solid', fgColor: { rgb: '1A1A2E' }, bgColor: { rgb: '1A1A2E' } };
+    ['O1','P1','Q1','R1','S1','T1','U1','V1','W1','X1','Y1','Z1',
+     'O2','P2','Q2','R2','S2','T2','U2','V2','W2','X2','Y2','Z2'].forEach(ref => {
+      if (!ws[ref]) ws[ref] = { t: 's', v: '' };
+      ws[ref].s = { fill: darkFill };
+    });
+
     const dias = routineData.dias.slice(0, 5);
     const BANDS = [['b','baja'],['m','media'],['ma','malt'],['a','alta']];
 
