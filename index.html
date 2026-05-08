@@ -405,6 +405,17 @@
     border: 1px solid rgba(239,68,68,0.3) !important;
     color: #f87171;
   }
+  .btn-admin-export {
+    background: rgba(74,222,128,0.1);
+    border: 1px solid rgba(74,222,128,0.25) !important;
+    color: var(--ok);
+  }
+  .btn-admin-import {
+    background: rgba(96,165,250,0.1);
+    border: 1px solid rgba(96,165,250,0.25) !important;
+    color: #93c5fd;
+  }
+  #adminImportInput { display: none; }
   #adminPwBox {
     display: flex;
     flex-direction: column;
@@ -457,6 +468,11 @@
     <div class="step active" data-step="1">
       <h2>Datos físicos</h2>
       <p class="subtitle">Empecemos con tus medidas básicas</p>
+      <label style="margin-bottom:8px;display:block;">Sexo biológico</label>
+      <div class="options-grid" id="genderGrid" style="grid-template-columns:1fr 1fr;margin-bottom:20px;">
+        <div class="option" data-value="hombre" style="font-size:1rem;">♂&nbsp; Hombre</div>
+        <div class="option" data-value="mujer"  style="font-size:1rem;">♀&nbsp; Mujer</div>
+      </div>
       <div class="row">
         <div>
           <label for="weight">Peso (kg)</label>
@@ -579,6 +595,7 @@ const state = {
   step: 1,
   totalSteps: 7,
   exercises: null,
+  gender: null,
   weight: null,
   height: null,
   injuries: [],
@@ -636,6 +653,7 @@ function setupSingleSelect(gridId) {
   });
 }
 
+setupSingleSelect('genderGrid');
 setupMultiSelect('injuriesGrid', 'ninguna');
 setupMultiSelect('goalGrid', null);
 setupEquipmentSelect();
@@ -708,6 +726,9 @@ function showStep(n) {
 
 function validateStep(n) {
   if (n === 1) {
+    const gSel = $('#genderGrid .option.selected');
+    if (!gSel) { alert('Seleccioná tu sexo biológico'); return false; }
+    state.gender = gSel.dataset.value;
     const w = parseFloat($('#weight').value);
     const h = parseFloat($('#height').value);
     if (!w || w < 30 || w > 250) { alert('Ingresá un peso válido (30-250 kg)'); return false; }
@@ -1126,6 +1147,7 @@ function buildPrompt() {
   return `Sos un entrenador personal. Genera una rutina de gimnasio en español. Responde ÚNICAMENTE con JSON válido, sin markdown ni texto extra.
 
 DATOS DEL USUARIO:
+- Sexo: ${state.gender === 'mujer' ? 'Mujer' : 'Hombre'}
 - Peso corporal: ${state.weight} kg
 - Altura: ${state.height} cm
 - Objetivo: ${state.goal.map(g => GOAL_LABELS[g]).join(', ')}
@@ -1213,6 +1235,7 @@ FORMATO JSON:
 function renderSummary(injuries) {
   const bmi = (state.weight / Math.pow(state.height/100, 2)).toFixed(1);
   $('#summary').innerHTML = `
+    <div class="summary-row"><span>Sexo</span><span>${state.gender === 'mujer' ? '♀ Mujer' : '♂ Hombre'}</span></div>
     <div class="summary-row"><span>Peso / Altura</span><span>${state.weight} kg · ${state.height} cm</span></div>
     <div class="summary-row"><span>IMC</span><span>${bmi}</span></div>
     <div class="summary-row"><span>Objetivo</span><span>${state.goal.map(g => GOAL_LABELS[g]).join(' + ')}</span></div>
@@ -1618,6 +1641,44 @@ function resetAdminData() {
   showAdminStats();
 }
 
+function exportAdminData() {
+  const history = JSON.parse(localStorage.getItem(ADMIN_KEY) || '[]');
+  if (!history.length) { alert('No hay registros para exportar.'); return; }
+  const blob = new Blob([JSON.stringify(history, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `gymAI_historial_${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function importAdminData(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const incoming = JSON.parse(e.target.result);
+      if (!Array.isArray(incoming)) throw new Error('Formato inválido');
+      const existing = JSON.parse(localStorage.getItem(ADMIN_KEY) || '[]');
+      // Merge, deduplicate by timestamp
+      const map = new Map();
+      [...existing, ...incoming].forEach(r => map.set(r.ts, r));
+      const merged = Array.from(map.values()).sort((a, b) => a.ts - b.ts);
+      if (merged.length > 200) merged.splice(0, merged.length - 200);
+      localStorage.setItem(ADMIN_KEY, JSON.stringify(merged));
+      showAdminStats();
+      alert(`✓ Importados ${incoming.length} registros. Total: ${merged.length}.`);
+    } catch(err) {
+      alert('Error al leer el archivo: ' + err.message);
+    }
+    input.value = '';
+  };
+  reader.readAsText(file);
+}
+
 // Keyboard shortcut: Ctrl+Shift+A opens admin
 document.addEventListener('keydown', e => {
   if (e.ctrlKey && e.shiftKey && e.key === 'A') { e.preventDefault(); openAdminPanel(); }
@@ -1675,10 +1736,13 @@ document.addEventListener('keydown', e => {
       <div class="admin-log-title">Últimas 20 generaciones</div>
       <div id="adminLog"></div>
 
-      <div class="admin-actions">
-        <button class="btn-admin-close" onclick="closeAdminPanel()">Cerrar</button>
-        <button class="btn-admin-reset" onclick="resetAdminData()">🗑 Borrar historial</button>
+      <div class="admin-actions" style="flex-wrap:wrap;">
+        <button class="btn-admin-export" onclick="exportAdminData()">⬇ Exportar</button>
+        <button class="btn-admin-import" onclick="document.getElementById('adminImportInput').click()">⬆ Importar</button>
+        <button class="btn-admin-reset"  onclick="resetAdminData()">🗑 Borrar</button>
+        <button class="btn-admin-close"  onclick="closeAdminPanel()">Cerrar</button>
       </div>
+      <input type="file" id="adminImportInput" accept=".json" onchange="importAdminData(this)" />
     </div>
   </div>
 </div>
