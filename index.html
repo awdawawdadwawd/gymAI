@@ -441,6 +441,7 @@
       <div class="progress-step"></div>
       <div class="progress-step"></div>
       <div class="progress-step"></div>
+      <div class="progress-step"></div>
     </div>
 
     <!-- Paso 1: Peso y altura -->
@@ -533,8 +534,22 @@
       </div>
     </div>
 
-    <!-- Paso 6: Cantidad de ejercicios -->
+    <!-- Paso 6: Zona de foco -->
     <div class="step" data-step="6">
+      <h2>Zona de foco</h2>
+      <p class="subtitle">¿En qué querés enfocarte? Podés elegir más de uno</p>
+      <div class="options-grid" id="focusGrid" style="grid-template-columns:1fr 1fr 1fr;">
+        <div class="option" data-value="full_body" style="font-size:0.95rem;">🔄 Full Body</div>
+        <div class="option" data-value="zona_superior" style="font-size:0.95rem;">💪 Zona Superior</div>
+        <div class="option" data-value="pecho" style="font-size:0.95rem;">🫁 Pecho</div>
+        <div class="option" data-value="brazos" style="font-size:0.95rem;">🦾 Brazos</div>
+        <div class="option" data-value="piernas" style="font-size:0.95rem;">🦵 Piernas</div>
+        <div class="option" data-value="core" style="font-size:0.95rem;">⚡ Core</div>
+      </div>
+    </div>
+
+    <!-- Paso 7: Cantidad de ejercicios -->
+    <div class="step" data-step="7">
       <h2>Ejercicios por día</h2>
       <p class="subtitle">¿Cuántos ejercicios querés por sesión?</p>
       <div class="options-grid" id="exCountGrid">
@@ -547,8 +562,8 @@
       </div>
     </div>
 
-    <!-- Paso 7: Resultado -->
-    <div class="step" data-step="7">
+    <!-- Paso 8: Resultado -->
+    <div class="step" data-step="8">
       <h2>Tu rutina personalizada</h2>
       <p class="subtitle" id="resultSubtitle">Generada según tu perfil</p>
       <div id="loadingBox" class="loading">
@@ -572,7 +587,7 @@
 <script>
 const state = {
   step: 1,
-  totalSteps: 7,
+  totalSteps: 8,
   exercises: null,
   gender: null,
   weight: null,
@@ -581,7 +596,8 @@ const state = {
   injuryNote: '',
   goal: [],
   equipment: [],
-  days: null
+  days: null,
+  focus: []
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -619,6 +635,7 @@ setupMultiSelect('injuriesGrid', 'ninguna');
 setupMultiSelect('goalGrid', null);
 setupEquipmentSelect();
 setupSingleSelect('daysGrid');
+setupMultiSelect('focusGrid', 'full_body');
 setupSingleSelect('exCountGrid');
 
 function setupEquipmentSelect() {
@@ -720,6 +737,11 @@ function validateStep(n) {
     state.days = parseInt(sel.dataset.value);
   }
   if (n === 6) {
+    const sel = $$('#focusGrid .option.selected');
+    if (!sel.length) { alert('Seleccioná al menos una zona de foco'); return false; }
+    state.focus = Array.from(sel).map(o => o.dataset.value);
+  }
+  if (n === 7) {
     const sel = $('#exCountGrid .option.selected');
     if (!sel) { alert('Seleccioná cuántos ejercicios por día'); return false; }
     state.exercises = parseInt(sel.dataset.value);
@@ -1112,6 +1134,10 @@ DATOS DEL USUARIO:
 - Lesiones: ${injuryList}${state.injuryNote ? ` (${state.injuryNote})` : ''}
 - Días de entrenamiento por semana: ${state.days}
 - Ejercicios principales por día: ${state.exercises}
+- Zona de foco: ${(()=>{
+    const FOCUS_LABELS = { full_body:'Full Body', zona_superior:'Zona Superior (pecho, espalda, hombros, brazos)', pecho:'Pecho', brazos:'Brazos (bíceps y tríceps)', piernas:'Piernas (cuádriceps, isquiotibiales, glúteos, gemelos)', core:'Core y abdominales' };
+    return state.focus.map(f => FOCUS_LABELS[f]||f).join(', ');
+  })()}
 
 EQUIPAMIENTO DISPONIBLE (USAR SOLO ESTO):
 ${equipList}
@@ -1147,6 +1173,20 @@ PASO 5 — AJUSTAR SERIES/REPS AL OBJETIVO:
   • Tonificación/Resistencia: 3-4 series × 12-20 reps (ej: "3x15", "4x12-15")
   • Pérdida de grasa: 3-4 series × 10-15 reps (ej: "4x12", "3x15")
   • Rehabilitación: 2-3 series × 12-15 reps con técnica impecable (ej: "3x12", "2x15")
+
+PASO 6 — RESPETAR ZONA DE FOCO:
+${(()=>{
+  const f = state.focus;
+  if (f.includes('full_body')) return '  • Full Body seleccionado: cada día debe incluir ejercicios de tren superior (pecho, espalda, hombros, brazos) Y tren inferior (piernas, glúteos). Distribuir de forma equilibrada.';
+  const parts = [];
+  if (f.includes('zona_superior')) parts.push('Zona Superior (pecho, espalda, hombros, brazos)');
+  if (f.includes('pecho'))         parts.push('Pecho');
+  if (f.includes('brazos'))        parts.push('Brazos (bíceps y tríceps)');
+  if (f.includes('piernas'))       parts.push('Piernas');
+  if (f.includes('core'))          parts.push('Core');
+  if (parts.length === 1) return `  • Foco exclusivo en ${parts[0]}: la MAYORÍA de los días deben entrenar este grupo. Asignar más ejercicios y más días a este grupo.`;
+  return `  • Focos seleccionados: ${parts.join(' + ')}. Distribuir los días priorizando estos grupos. Asignar más ejercicios y más días a ellos que a los grupos NO seleccionados.`;
+})()}
 
 REGLAS ADICIONALES:
 1. TODOS los ejercicios deben poder realizarse con el equipamiento disponible.
@@ -1197,6 +1237,7 @@ function renderSummary(injuries) {
     <div class="summary-row"><span>Peso / Altura</span><span>${state.weight} kg · ${state.height} cm</span></div>
     <div class="summary-row"><span>IMC</span><span>${bmi}</span></div>
     <div class="summary-row"><span>Objetivo</span><span>${state.goal.map(g => GOAL_LABELS[g]).join(' + ')}</span></div>
+    <div class="summary-row"><span>Foco</span><span>${(()=>{ const FL={full_body:'Full Body',zona_superior:'Zona Superior',pecho:'Pecho',brazos:'Brazos',piernas:'Piernas',core:'Core'}; return state.focus.map(f=>FL[f]||f).join(' + '); })()}</span></div>
     <div class="summary-row"><span>Frecuencia</span><span>${state.days} días/semana</span></div>
     <div class="summary-row"><span>Lesiones</span><span>${injuries.length ? injuries.map(i => INJURY_LABELS[i]||i).join(', ') : 'Ninguna'}</span></div>
     ${state.injuryNote ? `<div class="summary-row"><span>Detalle lesión</span><span style="text-align:right;max-width:70%">${state.injuryNote}</span></div>` : ''}
