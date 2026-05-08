@@ -405,17 +405,6 @@
     border: 1px solid rgba(239,68,68,0.3) !important;
     color: #f87171;
   }
-  .btn-admin-export {
-    background: rgba(74,222,128,0.1);
-    border: 1px solid rgba(74,222,128,0.25) !important;
-    color: var(--ok);
-  }
-  .btn-admin-import {
-    background: rgba(96,165,250,0.1);
-    border: 1px solid rgba(96,165,250,0.25) !important;
-    color: #93c5fd;
-  }
-  #adminImportInput { display: none; }
   #adminPwBox {
     display: flex;
     flex-direction: column;
@@ -1550,26 +1539,42 @@ const ADMIN_PASSWORD   = '3635';
 const ADMIN_KEY        = 'gymAdminUsage';
 let adminUnlocked      = false;
 
+const FB_KEY = 'gymAdminFbUrl';
+
+function getFbUrl() { return localStorage.getItem(FB_KEY) || ''; }
+
+function saveFbUrl() {
+  const raw = document.getElementById('adminFbInput').value.trim().replace(/\/$/, '');
+  if (raw && !raw.startsWith('https://')) { alert('La URL debe empezar con https://'); return; }
+  localStorage.setItem(FB_KEY, raw);
+  document.getElementById('adminFbStatus').textContent = raw ? '✓ Guardado' : 'Desactivado';
+  document.getElementById('adminFbStatus').style.color  = raw ? 'var(--ok)' : 'var(--muted)';
+}
+
+// Envía un registro a Firebase (silencioso, no bloquea la UI)
 function trackUsage(promptTok, completionTok) {
   const record = {
-    ts:  Date.now(),
-    pin: promptTok,
+    ts:   Date.now(),
+    pin:  promptTok,
     pout: completionTok,
     cost: promptTok * PRICE_INPUT + completionTok * PRICE_OUTPUT
   };
-  const history = JSON.parse(localStorage.getItem(ADMIN_KEY) || '[]');
-  history.push(record);
-  // Keep last 200 entries
-  if (history.length > 200) history.splice(0, history.length - 200);
-  localStorage.setItem(ADMIN_KEY, JSON.stringify(history));
+  const fbUrl = getFbUrl();
+  if (fbUrl) {
+    fetch(`${fbUrl}/usage.json`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(record)
+    }).catch(() => {});  // Falla silenciosa
+  }
 }
 
 function openAdminPanel() {
   document.getElementById('adminOverlay').classList.add('open');
   if (!adminUnlocked) {
-    document.getElementById('adminPwBox').style.display = 'flex';
-    document.getElementById('adminStats').style.display = 'none';
-    document.getElementById('adminPwInput').value = '';
+    document.getElementById('adminPwBox').style.display    = 'flex';
+    document.getElementById('adminStats').style.display   = 'none';
+    document.getElementById('adminPwInput').value         = '';
     document.getElementById('adminPwError').style.display = 'none';
   } else {
     showAdminStats();
@@ -1588,20 +1593,50 @@ function checkAdminPassword() {
     showAdminStats();
   } else {
     document.getElementById('adminPwError').style.display = 'block';
-    document.getElementById('adminPwInput').value = '';
+    document.getElementById('adminPwInput').value         = '';
     document.getElementById('adminPwInput').focus();
   }
 }
 
-function showAdminStats() {
+async function showAdminStats() {
   document.getElementById('adminStats').style.display = 'block';
-  const history = JSON.parse(localStorage.getItem(ADMIN_KEY) || '[]');
-  const totalRoutines   = history.length;
-  const totalInTok      = history.reduce((s, r) => s + r.pin,  0);
-  const totalOutTok     = history.reduce((s, r) => s + r.pout, 0);
-  const totalCost       = history.reduce((s, r) => s + r.cost, 0);
-  const avgCost         = totalRoutines > 0 ? totalCost / totalRoutines : 0;
-  const routinesPer1    = totalCost > 0 ? 1 / avgCost : 0;
+
+  // Precargar config de Firebase en el input
+  const savedUrl = getFbUrl();
+  document.getElementById('adminFbInput').value = savedUrl;
+  if (savedUrl) {
+    document.getElementById('adminFbStatus').textContent = '✓ Conectado';
+    document.getElementById('adminFbStatus').style.color = 'var(--ok)';
+  }
+
+  // Mostrar loading mientras se carga
+  document.getElementById('adminLog').innerHTML =
+    '<p style="color:var(--muted);font-size:0.82rem;text-align:center;padding:12px">Cargando datos...</p>';
+
+  let history = [];
+
+  // Obtener datos de Firebase si está configurado
+  const fbUrl = getFbUrl();
+  if (fbUrl) {
+    try {
+      const res  = await fetch(`${fbUrl}/usage.json`);
+      const data = await res.json();
+      if (data && typeof data === 'object') {
+        history = Object.values(data).filter(r => r && r.ts && r.pin != null);
+        history.sort((a, b) => a.ts - b.ts);
+      }
+    } catch(e) {
+      document.getElementById('adminFbStatus').textContent = '⚠ Error de conexión';
+      document.getElementById('adminFbStatus').style.color = 'var(--warn)';
+    }
+  }
+
+  const totalRoutines = history.length;
+  const totalInTok    = history.reduce((s, r) => s + r.pin,  0);
+  const totalOutTok   = history.reduce((s, r) => s + r.pout, 0);
+  const totalCost     = history.reduce((s, r) => s + r.cost, 0);
+  const avgCost       = totalRoutines > 0 ? totalCost / totalRoutines : 0;
+  const routinesPer1  = avgCost > 0 ? 1 / avgCost : 0;
 
   document.getElementById('aStat1').textContent = totalRoutines;
   document.getElementById('aStat2').textContent = '$' + totalCost.toFixed(4);
@@ -1611,13 +1646,13 @@ function showAdminStats() {
   document.getElementById('aStat6').textContent = (totalInTok  / Math.max(totalRoutines, 1)).toFixed(0);
   document.getElementById('aStat7').textContent = (totalOutTok / Math.max(totalRoutines, 1)).toFixed(0);
 
-  // Log table (last 20, newest first)
-  const rows = [...history].reverse().slice(0, 20);
+  // Tabla: últimas 20 (más recientes primero)
+  const rows  = [...history].reverse().slice(0, 20);
   const tbody = rows.map(r => {
     const d  = new Date(r.ts);
-    const ts = d.toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit' })
+    const ts = d.toLocaleDateString('es-AR',  { day: '2-digit', month: '2-digit' })
              + ' '
-             + d.toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' });
+             + d.toLocaleTimeString('es-AR',  { hour: '2-digit', minute: '2-digit' });
     return `<tr>
       <td>${ts}</td>
       <td>${r.pin.toLocaleString()}</td>
@@ -1631,52 +1666,8 @@ function showAdminStats() {
       <thead><tr>
         <th>Fecha</th><th>Tokens in</th><th>Tokens out</th><th>Costo</th>
       </tr></thead>
-      <tbody>${tbody || '<tr><td colspan="4" style="color:var(--muted);text-align:center;padding:12px">Sin registros aún</td></tr>'}</tbody>
+      <tbody>${tbody || '<tr><td colspan="4" style="color:var(--muted);text-align:center;padding:12px">' + (fbUrl ? 'Sin registros aún' : '⚠ Configurá Firebase para ver todos los datos') + '</td></tr>'}</tbody>
     </table>`;
-}
-
-function resetAdminData() {
-  if (!confirm('¿Borrar todo el historial de uso? Esta acción no se puede deshacer.')) return;
-  localStorage.removeItem(ADMIN_KEY);
-  showAdminStats();
-}
-
-function exportAdminData() {
-  const history = JSON.parse(localStorage.getItem(ADMIN_KEY) || '[]');
-  if (!history.length) { alert('No hay registros para exportar.'); return; }
-  const blob = new Blob([JSON.stringify(history, null, 2)], { type: 'application/json' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = `gymAI_historial_${new Date().toISOString().slice(0,10)}.json`;
-  document.body.appendChild(a); a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-function importAdminData(input) {
-  const file = input.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      const incoming = JSON.parse(e.target.result);
-      if (!Array.isArray(incoming)) throw new Error('Formato inválido');
-      const existing = JSON.parse(localStorage.getItem(ADMIN_KEY) || '[]');
-      // Merge, deduplicate by timestamp
-      const map = new Map();
-      [...existing, ...incoming].forEach(r => map.set(r.ts, r));
-      const merged = Array.from(map.values()).sort((a, b) => a.ts - b.ts);
-      if (merged.length > 200) merged.splice(0, merged.length - 200);
-      localStorage.setItem(ADMIN_KEY, JSON.stringify(merged));
-      showAdminStats();
-      alert(`✓ Importados ${incoming.length} registros. Total: ${merged.length}.`);
-    } catch(err) {
-      alert('Error al leer el archivo: ' + err.message);
-    }
-    input.value = '';
-  };
-  reader.readAsText(file);
 }
 
 // Keyboard shortcut: Ctrl+Shift+A opens admin
@@ -1736,13 +1727,23 @@ document.addEventListener('keydown', e => {
       <div class="admin-log-title">Últimas 20 generaciones</div>
       <div id="adminLog"></div>
 
-      <div class="admin-actions" style="flex-wrap:wrap;">
-        <button class="btn-admin-export" onclick="exportAdminData()">⬇ Exportar</button>
-        <button class="btn-admin-import" onclick="document.getElementById('adminImportInput').click()">⬆ Importar</button>
-        <button class="btn-admin-reset"  onclick="resetAdminData()">🗑 Borrar</button>
-        <button class="btn-admin-close"  onclick="closeAdminPanel()">Cerrar</button>
+      <!-- Firebase config -->
+      <div style="margin-top:18px;padding:14px;background:var(--card-2);border:1px solid var(--border);border-radius:10px;">
+        <div style="font-size:0.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">🔥 Firebase — datos de todos los dispositivos</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" id="adminFbInput" placeholder="https://tu-proyecto-default-rtdb.firebaseio.com"
+                 style="flex:1;padding:7px 10px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.82rem;" />
+          <button onclick="saveFbUrl()" style="padding:7px 12px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-size:0.82rem;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit;">Guardar</button>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+          <span id="adminFbStatus" style="font-size:0.78rem;color:var(--muted);">Sin configurar</span>
+          <button onclick="showAdminStats()" style="font-size:0.78rem;color:var(--accent-2);background:none;border:none;cursor:pointer;padding:0;">↻ Actualizar</button>
+        </div>
       </div>
-      <input type="file" id="adminImportInput" accept=".json" onchange="importAdminData(this)" />
+
+      <div class="admin-actions" style="margin-top:14px;">
+        <button class="btn-admin-close" onclick="closeAdminPanel()">Cerrar</button>
+      </div>
     </div>
   </div>
 </div>
