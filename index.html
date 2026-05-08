@@ -1508,17 +1508,7 @@ const ADMIN_PASSWORD   = '3635';
 const ADMIN_KEY        = 'gymAdminUsage';
 let adminUnlocked      = false;
 
-const FB_KEY = 'gymAdminFbUrl';
-
-function getFbUrl() { return localStorage.getItem(FB_KEY) || ''; }
-
-function saveFbUrl() {
-  const raw = document.getElementById('adminFbInput').value.trim().replace(/\/$/, '');
-  if (raw && !raw.startsWith('https://')) { alert('La URL debe empezar con https://'); return; }
-  localStorage.setItem(FB_KEY, raw);
-  document.getElementById('adminFbStatus').textContent = raw ? '✓ Guardado' : 'Desactivado';
-  document.getElementById('adminFbStatus').style.color  = raw ? 'var(--ok)' : 'var(--muted)';
-}
+const FB_URL = 'https://gymai-a6b22-default-rtdb.firebaseio.com';
 
 // Envía un registro a Firebase (silencioso, no bloquea la UI)
 function trackUsage(promptTok, completionTok) {
@@ -1528,14 +1518,11 @@ function trackUsage(promptTok, completionTok) {
     pout: completionTok,
     cost: promptTok * PRICE_INPUT + completionTok * PRICE_OUTPUT
   };
-  const fbUrl = getFbUrl();
-  if (fbUrl) {
-    fetch(`${fbUrl}/usage.json`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(record)
-    }).catch(() => {});  // Falla silenciosa
-  }
+  fetch(`${FB_URL}/usage.json`, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(record)
+  }).catch(() => {});  // Falla silenciosa
 }
 
 function openAdminPanel() {
@@ -1569,35 +1556,26 @@ function checkAdminPassword() {
 
 async function showAdminStats() {
   document.getElementById('adminStats').style.display = 'block';
+  document.getElementById('adminFbStatus').textContent = 'Cargando...';
+  document.getElementById('adminFbStatus').style.color = 'var(--muted)';
 
-  // Precargar config de Firebase en el input
-  const savedUrl = getFbUrl();
-  document.getElementById('adminFbInput').value = savedUrl;
-  if (savedUrl) {
-    document.getElementById('adminFbStatus').textContent = '✓ Conectado';
-    document.getElementById('adminFbStatus').style.color = 'var(--ok)';
-  }
-
-  // Mostrar loading mientras se carga
   document.getElementById('adminLog').innerHTML =
     '<p style="color:var(--muted);font-size:0.82rem;text-align:center;padding:12px">Cargando datos...</p>';
 
   let history = [];
 
-  // Obtener datos de Firebase si está configurado
-  const fbUrl = getFbUrl();
-  if (fbUrl) {
-    try {
-      const res  = await fetch(`${fbUrl}/usage.json`);
-      const data = await res.json();
-      if (data && typeof data === 'object') {
-        history = Object.values(data).filter(r => r && r.ts && r.pin != null);
-        history.sort((a, b) => a.ts - b.ts);
-      }
-    } catch(e) {
-      document.getElementById('adminFbStatus').textContent = '⚠ Error de conexión';
-      document.getElementById('adminFbStatus').style.color = 'var(--warn)';
+  try {
+    const res  = await fetch(`${FB_URL}/usage.json`);
+    const data = await res.json();
+    if (data && typeof data === 'object') {
+      history = Object.values(data).filter(r => r && r.ts && r.pin != null);
+      history.sort((a, b) => a.ts - b.ts);
     }
+    document.getElementById('adminFbStatus').textContent = '✓ Firebase conectado';
+    document.getElementById('adminFbStatus').style.color = 'var(--ok)';
+  } catch(e) {
+    document.getElementById('adminFbStatus').textContent = '⚠ Error de conexión';
+    document.getElementById('adminFbStatus').style.color = 'var(--warn)';
   }
 
   const totalRoutines = history.length;
@@ -1696,21 +1674,12 @@ document.addEventListener('keydown', e => {
       <div class="admin-log-title">Últimas 20 generaciones</div>
       <div id="adminLog"></div>
 
-      <!-- Firebase config -->
-      <div style="margin-top:18px;padding:14px;background:var(--card-2);border:1px solid var(--border);border-radius:10px;">
-        <div style="font-size:0.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">🔥 Firebase — datos de todos los dispositivos</div>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <input type="text" id="adminFbInput" placeholder="https://tu-proyecto-default-rtdb.firebaseio.com"
-                 style="flex:1;padding:7px 10px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.82rem;" />
-          <button onclick="saveFbUrl()" style="padding:7px 12px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-size:0.82rem;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit;">Guardar</button>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
-          <span id="adminFbStatus" style="font-size:0.78rem;color:var(--muted);">Sin configurar</span>
-          <button onclick="showAdminStats()" style="font-size:0.78rem;color:var(--accent-2);background:none;border:none;cursor:pointer;padding:0;">↻ Actualizar</button>
-        </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;">
+        <span id="adminFbStatus" style="font-size:0.78rem;color:var(--muted);">Cargando...</span>
+        <button onclick="showAdminStats()" style="font-size:0.78rem;color:var(--accent-2);background:none;border:none;cursor:pointer;padding:0;">↻ Actualizar</button>
       </div>
 
-      <div class="admin-actions" style="margin-top:14px;">
+      <div class="admin-actions" style="margin-top:10px;">
         <button class="btn-admin-close" onclick="closeAdminPanel()">Cerrar</button>
       </div>
     </div>
