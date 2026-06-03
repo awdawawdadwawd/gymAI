@@ -1670,7 +1670,8 @@ function trackUsage(promptTok, completionTok) {
     ts:   Date.now(),
     pin:  promptTok,
     pout: completionTok,
-    cost: promptTok * PRICE_INPUT + completionTok * PRICE_OUTPUT
+    cost: promptTok * PRICE_INPUT + completionTok * PRICE_OUTPUT,
+    user: localStorage.getItem('gymLoggedUser') || 'anónimo'
   };
   fetch(`${FB_URL}/usage.json`, {
     method:  'POST',
@@ -1756,6 +1757,7 @@ async function showAdminStats() {
              + d.toLocaleTimeString('es-AR',  { hour: '2-digit', minute: '2-digit' });
     return `<tr>
       <td>${ts}</td>
+      <td style="color:var(--accent-2);font-weight:500;">${r.user || '—'}</td>
       <td>${r.pin.toLocaleString()}</td>
       <td>${r.pout.toLocaleString()}</td>
       <td>$${r.cost.toFixed(5)}</td>
@@ -1765,9 +1767,9 @@ async function showAdminStats() {
   document.getElementById('adminLog').innerHTML = `
     <table>
       <thead><tr>
-        <th>Fecha</th><th>Tokens in</th><th>Tokens out</th><th>Costo</th>
+        <th>Fecha</th><th>Usuario</th><th>Tokens in</th><th>Tokens out</th><th>Costo</th>
       </tr></thead>
-      <tbody>${tbody || '<tr><td colspan="4" style="color:var(--muted);text-align:center;padding:12px">' + (fbUrl ? 'Sin registros aún' : '⚠ Configurá Firebase para ver todos los datos') + '</td></tr>'}</tbody>
+      <tbody>${tbody || '<tr><td colspan="5" style="color:var(--muted);text-align:center;padding:12px">' + (fbUrl ? 'Sin registros aún' : '⚠ Configurá Firebase para ver todos los datos') + '</td></tr>'}</tbody>
     </table>`;
 }
 
