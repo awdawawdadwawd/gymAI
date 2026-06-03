@@ -509,6 +509,27 @@
   </div>
 </div>
 
+<!-- Cambiar nombre de usuario -->
+<div id="changeUserOverlay" onclick="if(event.target===this)closeChangeUser()">
+  <div class="card" style="width:100%;max-width:360px;">
+    <h3 style="margin-bottom:16px;font-size:1.1rem;">Cambiar nombre de usuario</h3>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <input class="login-input" id="cuPass"    type="password" placeholder="Contraseña actual (para confirmar)" />
+      <input class="login-input" id="cuNewName" type="text"     placeholder="Nuevo nombre de usuario"
+             onkeydown="if(event.key==='Enter')doChangeUser()" />
+      <p id="cuError" style="color:#f87171;font-size:0.85rem;display:none;margin:0;"></p>
+      <p id="cuOk"    style="color:#4ade80;font-size:0.85rem;display:none;margin:0;">✓ Nombre de usuario actualizado</p>
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <button onclick="closeChangeUser()" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--card-2);color:var(--text);font-weight:600;cursor:pointer;font-family:inherit;">Cancelar</button>
+        <button class="btn-primary" onclick="doChangeUser()" id="cuBtn"
+                style="flex:1;padding:10px;border-radius:8px;border:none;font-weight:700;cursor:pointer;font-family:inherit;">
+          Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Cambiar contraseña -->
 <div id="changePwOverlay" onclick="if(event.target===this)closeChangePw()">
   <div class="card" style="width:100%;max-width:360px;">
@@ -537,6 +558,8 @@
     <p>Generador inteligente de rutinas personalizadas</p>
     <div id="userBar" style="display:none;font-size:0.82rem;color:var(--muted);margin-top:8px;">
       👤 <span id="userBarName" style="color:var(--text);font-weight:500;"></span>
+      &nbsp;·&nbsp;
+      <button onclick="openChangeUser()" style="background:none;border:none;color:var(--accent-2);cursor:pointer;font-size:0.82rem;font-family:inherit;padding:0;">Cambiar usuario</button>
       &nbsp;·&nbsp;
       <button onclick="openChangePw()" style="background:none;border:none;color:var(--accent-2);cursor:pointer;font-size:0.82rem;font-family:inherit;padding:0;">Cambiar contraseña</button>
       &nbsp;·&nbsp;
@@ -1840,6 +1863,56 @@ async function doLogin() {
     showLoginError('Error de conexión. Intentá de nuevo.');
   } finally {
     btn.textContent = 'Entrar'; btn.disabled = false;
+  }
+}
+
+// ── Cambio de nombre de usuario ──────────────────────────────
+
+function openChangeUser() {
+  document.getElementById('changeUserOverlay').classList.add('open');
+  document.getElementById('cuPass').value    = '';
+  document.getElementById('cuNewName').value = '';
+  document.getElementById('cuError').style.display = 'none';
+  document.getElementById('cuOk').style.display    = 'none';
+}
+function closeChangeUser() {
+  document.getElementById('changeUserOverlay').classList.remove('open');
+}
+
+async function doChangeUser() {
+  const oldUsername = localStorage.getItem('gymLoggedUser');
+  const password    = document.getElementById('cuPass').value;
+  const newUsername = document.getElementById('cuNewName').value.trim();
+  const errEl = document.getElementById('cuError');
+  const okEl  = document.getElementById('cuOk');
+  const btn   = document.getElementById('cuBtn');
+
+  errEl.style.display = 'none'; okEl.style.display = 'none';
+
+  if (oldUsername === 'admin') { errEl.textContent = 'El usuario admin no puede cambiarse.'; errEl.style.display = 'block'; return; }
+  if (!password || !newUsername) { errEl.textContent = 'Completá todos los campos.'; errEl.style.display = 'block'; return; }
+  if (newUsername === 'admin')   { errEl.textContent = 'Ese nombre de usuario está reservado.'; errEl.style.display = 'block'; return; }
+  if (newUsername === oldUsername) { errEl.textContent = 'El nuevo usuario es igual al actual.'; errEl.style.display = 'block'; return; }
+
+  btn.textContent = 'Guardando...'; btn.disabled = true;
+  try {
+    const passwordHash = await hashPw(password);
+    const res = await fetch(`${GROQ_URL}/username-change`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ oldUsername, newUsername, passwordHash })
+    });
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = data.error || 'Error al cambiar usuario.'; errEl.style.display = 'block'; return; }
+    // Actualizar sesión
+    localStorage.setItem('gymLoggedUser', newUsername);
+    document.getElementById('userBarName').textContent = newUsername;
+    okEl.style.display = 'block';
+    setTimeout(() => closeChangeUser(), 2000);
+  } catch(e) {
+    errEl.textContent = 'Error de conexión. Intentá de nuevo.'; errEl.style.display = 'block';
+  } finally {
+    btn.textContent = 'Guardar'; btn.disabled = false;
   }
 }
 
