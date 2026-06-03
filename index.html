@@ -1442,6 +1442,7 @@ function renderFallbackRoutine() {
 }
 
 async function generateRoutine() {
+  if (!await verifySession()) return; // Corta si el usuario fue dado de baja
   $('#loadingBox').style.display = 'block';
   $('#resultBox').style.display = 'none';
   $('#loadingBox').innerHTML = `<div class="spinner"></div><p>Generando tu rutina con IA...</p><p style="color:var(--muted);font-size:0.85rem;margin-top:8px">Analizando lesiones y objetivos</p>`;
@@ -2072,8 +2073,28 @@ async function adminToggleUser(username, currentlyEnabled) {
   }
 }
 
+// ── Verificación de sesión activa ────────────────────────────
+async function verifySession() {
+  const username = localStorage.getItem('gymLoggedUser');
+  if (!username || username === 'admin') return true;
+  try {
+    const res  = await fetch(`${FB_URL}/users/${encodeURIComponent(username)}.json`);
+    const user = await res.json();
+    if (!user || user.enabled === false) {
+      localStorage.removeItem('gymLoggedUser');
+      alert('Tu acceso fue deshabilitado. Contactá al administrador.');
+      location.reload();
+      return false;
+    }
+    return true;
+  } catch(e) {
+    return true; // Si hay error de red, no bloquear al usuario
+  }
+}
+
 // ── Inicio ───────────────────────────────────────────────────
 checkSession();
+verifySession(); // Verifica contra Firebase al cargar la página
 </script>
 
 <!-- Admin Panel Overlay -->
