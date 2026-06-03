@@ -438,14 +438,14 @@
   }
   .login-input:focus { border-color: var(--accent); }
 
-  /* ── Cambio de contraseña ── */
-  #changePwOverlay {
+  /* ── Modales de cambio de datos ── */
+  #changePwOverlay, #changeUserOverlay {
     position: fixed; inset: 0;
     background: rgba(0,0,0,0.75);
     display: none; align-items: center; justify-content: center;
     z-index: 600; padding: 20px;
   }
-  #changePwOverlay.open { display: flex; }
+  #changePwOverlay.open, #changeUserOverlay.open { display: flex; }
 
   /* ── Tabla de usuarios en admin ── */
   .users-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 6px; }
