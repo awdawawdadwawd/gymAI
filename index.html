@@ -420,15 +420,128 @@
   }
   #adminPwBox input:focus { outline: none; border-color: var(--accent); }
   #adminPwError { color: #f87171; font-size: 0.82rem; display: none; }
+
+  /* ── Login overlay ── */
+  #loginOverlay {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 500; padding: 20px;
+  }
+  #loginOverlay.hidden { display: none; }
+  .login-input {
+    width: 100%; padding: 12px 16px;
+    background: var(--card-2); border: 1px solid var(--border);
+    border-radius: 10px; color: var(--text);
+    font-size: 1rem; font-family: inherit; outline: none;
+    transition: border-color 0.2s;
+  }
+  .login-input:focus { border-color: var(--accent); }
+
+  /* ── Cambio de contraseña ── */
+  #changePwOverlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: none; align-items: center; justify-content: center;
+    z-index: 600; padding: 20px;
+  }
+  #changePwOverlay.open { display: flex; }
+
+  /* ── Tabla de usuarios en admin ── */
+  .users-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 6px; }
+  .users-table th { text-align: left; color: var(--muted); font-weight: 500; padding: 5px 6px; border-bottom: 1px solid var(--border); }
+  .users-table td { padding: 6px 6px; border-bottom: 1px solid rgba(42,47,58,0.5); color: var(--text); vertical-align: middle; }
+  .users-table tr:last-child td { border-bottom: none; }
+  .btn-user-toggle {
+    padding: 3px 10px; border-radius: 6px; border: 1px solid;
+    font-size: 0.75rem; font-weight: 600; cursor: pointer; font-family: inherit;
+  }
+  .btn-user-toggle.active  { background: rgba(239,68,68,0.12); color: #f87171; border-color: rgba(239,68,68,0.3); }
+  .btn-user-toggle.disabled{ background: rgba(74,222,128,0.12); color: #4ade80; border-color: rgba(74,222,128,0.3); }
+  .badge-on  { display:inline-block; padding:2px 8px; border-radius:4px; font-size:0.72rem; background:rgba(74,222,128,0.15); color:#4ade80; }
+  .badge-off { display:inline-block; padding:2px 8px; border-radius:4px; font-size:0.72rem; background:rgba(239,68,68,0.15); color:#f87171; }
+  .admin-section-title {
+    font-size: 0.88rem; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.05em;
+    margin: 20px 0 12px; border-top: 1px solid var(--border); padding-top: 16px;
+  }
+  .admin-secret-row { display: flex; gap: 8px; margin-bottom: 10px; }
+  .admin-secret-row input {
+    flex: 1; padding: 8px 12px;
+    background: var(--card-2); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-size: 0.82rem;
+    font-family: inherit; outline: none;
+  }
+  .admin-secret-row input:focus { border-color: var(--accent); }
+  .admin-new-user-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .admin-new-user-row input {
+    flex: 1; padding: 8px 12px;
+    background: var(--card-2); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-size: 0.82rem;
+    font-family: inherit; outline: none;
+  }
 </style>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
+
+<!-- Login Overlay -->
+<div id="loginOverlay">
+  <div class="card" style="width:100%;max-width:360px;">
+    <div style="text-align:center;margin-bottom:28px;">
+      <h1 style="font-size:2rem;background:linear-gradient(135deg,var(--accent),var(--accent-2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">GymAI</h1>
+      <p style="color:var(--muted);margin-top:6px;font-size:0.9rem;">Iniciá sesión para generar tu rutina</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <input class="login-input" id="loginUser" type="text" placeholder="Usuario"
+             onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()"
+             autocomplete="username" />
+      <input class="login-input" id="loginPass" type="password" placeholder="Contraseña"
+             onkeydown="if(event.key==='Enter')doLogin()"
+             autocomplete="current-password" />
+      <p id="loginError" style="color:#f87171;font-size:0.85rem;text-align:center;display:none;margin:0;"></p>
+      <button class="btn-primary" onclick="doLogin()" id="loginBtn"
+              style="padding:12px;border-radius:10px;border:none;font-weight:700;font-size:1rem;cursor:pointer;font-family:inherit;margin-top:4px;">
+        Entrar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Cambiar contraseña -->
+<div id="changePwOverlay" onclick="if(event.target===this)closeChangePw()">
+  <div class="card" style="width:100%;max-width:360px;">
+    <h3 style="margin-bottom:16px;font-size:1.1rem;">Cambiar contraseña</h3>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <input class="login-input" id="cpOld"  type="password" placeholder="Contraseña actual" />
+      <input class="login-input" id="cpNew"  type="password" placeholder="Nueva contraseña (mín. 4 caracteres)" />
+      <input class="login-input" id="cpNew2" type="password" placeholder="Repetir nueva contraseña"
+             onkeydown="if(event.key==='Enter')doChangePw()" />
+      <p id="cpError" style="color:#f87171;font-size:0.85rem;display:none;margin:0;"></p>
+      <p id="cpOk"    style="color:#4ade80;font-size:0.85rem;display:none;margin:0;">✓ Contraseña actualizada correctamente</p>
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <button onclick="closeChangePw()" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--card-2);color:var(--text);font-weight:600;cursor:pointer;font-family:inherit;">Cancelar</button>
+        <button class="btn-primary" onclick="doChangePw()" id="cpBtn"
+                style="flex:1;padding:10px;border-radius:8px;border:none;font-weight:700;cursor:pointer;font-family:inherit;">
+          Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="container">
   <header>
     <h1>GymAI</h1>
     <p>Generador inteligente de rutinas personalizadas</p>
+    <div id="userBar" style="display:none;font-size:0.82rem;color:var(--muted);margin-top:8px;">
+      👤 <span id="userBarName" style="color:var(--text);font-weight:500;"></span>
+      &nbsp;·&nbsp;
+      <button onclick="openChangePw()" style="background:none;border:none;color:var(--accent-2);cursor:pointer;font-size:0.82rem;font-family:inherit;padding:0;">Cambiar contraseña</button>
+      &nbsp;·&nbsp;
+      <button onclick="doLogout()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:0.82rem;font-family:inherit;padding:0;">Salir</button>
+    </div>
   </header>
 
 
@@ -1662,6 +1775,230 @@ async function showAdminStats() {
 document.addEventListener('keydown', e => {
   if (e.ctrlKey && e.shiftKey && e.key === 'A') { e.preventDefault(); openAdminPanel(); }
 });
+
+// ── Auth ──────────────────────────────────────────────────────
+
+async function hashPw(pass) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pass));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+function setSession(username) {
+  localStorage.setItem('gymLoggedUser', username);
+  document.getElementById('loginOverlay').classList.add('hidden');
+  document.getElementById('userBar').style.display  = 'block';
+  document.getElementById('userBarName').textContent = username;
+}
+
+function checkSession() {
+  const u = localStorage.getItem('gymLoggedUser');
+  if (u) {
+    document.getElementById('loginOverlay').classList.add('hidden');
+    document.getElementById('userBar').style.display  = 'block';
+    document.getElementById('userBarName').textContent = u;
+  }
+}
+
+function doLogout() {
+  localStorage.removeItem('gymLoggedUser');
+  location.reload();
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('loginError');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+async function doLogin() {
+  const username = document.getElementById('loginUser').value.trim();
+  const password = document.getElementById('loginPass').value;
+  const btn = document.getElementById('loginBtn');
+  document.getElementById('loginError').style.display = 'none';
+
+  if (!username || !password) { showLoginError('Ingresá usuario y contraseña'); return; }
+
+  // Cuenta admin especial — sin Firebase
+  if (username === 'admin' && password === ADMIN_PASSWORD) { setSession('admin'); return; }
+
+  btn.textContent = 'Verificando...'; btn.disabled = true;
+  try {
+    const hash = await hashPw(password);
+    const res  = await fetch(`${FB_URL}/users/${encodeURIComponent(username)}.json`);
+    if (!res.ok) throw new Error('fetch');
+    const user = await res.json();
+    if (!user || user.pw !== hash) { showLoginError('Usuario o contraseña incorrectos'); return; }
+    if (user.enabled === false)    { showLoginError('Tu acceso fue deshabilitado. Contactá al administrador.'); return; }
+    // Último login (silencioso — puede fallar si las reglas no lo permiten)
+    fetch(`${FB_URL}/users/${encodeURIComponent(username)}/lastLogin.json`, {
+      method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(Date.now())
+    }).catch(()=>{});
+    setSession(username);
+  } catch(e) {
+    showLoginError('Error de conexión. Intentá de nuevo.');
+  } finally {
+    btn.textContent = 'Entrar'; btn.disabled = false;
+  }
+}
+
+// ── Cambio de contraseña ──────────────────────────────────────
+
+function openChangePw() {
+  document.getElementById('changePwOverlay').classList.add('open');
+  ['cpOld','cpNew','cpNew2'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('cpError').style.display = 'none';
+  document.getElementById('cpOk').style.display    = 'none';
+}
+function closeChangePw() {
+  document.getElementById('changePwOverlay').classList.remove('open');
+}
+
+async function doChangePw() {
+  const username = localStorage.getItem('gymLoggedUser');
+  const oldPass  = document.getElementById('cpOld').value;
+  const newPass  = document.getElementById('cpNew').value;
+  const newPass2 = document.getElementById('cpNew2').value;
+  const errEl    = document.getElementById('cpError');
+  const okEl     = document.getElementById('cpOk');
+  const btn      = document.getElementById('cpBtn');
+
+  errEl.style.display = 'none'; okEl.style.display = 'none';
+
+  if (username === 'admin') {
+    errEl.textContent = 'El usuario admin usa contraseña fija del sistema.';
+    errEl.style.display = 'block'; return;
+  }
+  if (!oldPass || !newPass || !newPass2) { errEl.textContent = 'Completá todos los campos.'; errEl.style.display = 'block'; return; }
+  if (newPass !== newPass2)              { errEl.textContent = 'Las contraseñas nuevas no coinciden.'; errEl.style.display = 'block'; return; }
+  if (newPass.length < 4)               { errEl.textContent = 'La nueva contraseña debe tener al menos 4 caracteres.'; errEl.style.display = 'block'; return; }
+
+  btn.textContent = 'Guardando...'; btn.disabled = true;
+  try {
+    const [currentHash, newHash] = await Promise.all([hashPw(oldPass), hashPw(newPass)]);
+    const res = await fetch(`${GROQ_URL}/pw-change`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ username, currentHash, newHash })
+    });
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = data.error || 'Error al cambiar contraseña.'; errEl.style.display = 'block'; return; }
+    okEl.style.display = 'block';
+    setTimeout(() => closeChangePw(), 2000);
+  } catch(e) {
+    errEl.textContent = 'Error de conexión. Intentá de nuevo.'; errEl.style.display = 'block';
+  } finally {
+    btn.textContent = 'Guardar'; btn.disabled = false;
+  }
+}
+
+// ── Admin: gestión de usuarios ────────────────────────────────
+
+function getAdminSecret() {
+  return document.getElementById('adminFbSecret')?.value || localStorage.getItem('gymFbSecret') || '';
+}
+
+// Pre-carga el secreto guardado cuando se abre el panel
+const _origShowAdminStats = showAdminStats;
+showAdminStats = async function() {
+  const saved = localStorage.getItem('gymFbSecret');
+  if (saved) document.getElementById('adminFbSecret').value = saved;
+  await _origShowAdminStats();
+};
+
+async function adminLoadUsers() {
+  const secret = getAdminSecret();
+  if (!secret) { alert('Ingresá el Secreto Firebase primero.'); return; }
+  localStorage.setItem('gymFbSecret', secret);
+  const box = document.getElementById('adminUsersBox');
+  box.innerHTML = '<p style="color:var(--muted);font-size:0.82rem;">Cargando...</p>';
+  try {
+    const res  = await fetch(`${FB_URL}/users.json?auth=${encodeURIComponent(secret)}`);
+    const data = await res.json();
+    if (!res.ok || data?.error) {
+      box.innerHTML = `<p style="color:#f87171;font-size:0.82rem;">Error: ${data?.error || res.status}. Verificá el secreto.</p>`;
+      return;
+    }
+    if (!data) {
+      box.innerHTML = '<p style="color:var(--muted);font-size:0.82rem;">No hay usuarios registrados aún.</p>';
+      return;
+    }
+    const users = Object.entries(data);
+    box.innerHTML = `
+      <table class="users-table">
+        <thead>
+          <tr><th>Usuario</th><th>Estado</th><th>Creado</th><th>Último login</th><th></th></tr>
+        </thead>
+        <tbody>
+          ${users.map(([uname, u]) => `
+            <tr>
+              <td style="font-weight:500;">${uname}</td>
+              <td>${u.enabled !== false ? '<span class="badge-on">Activo</span>' : '<span class="badge-off">Baja</span>'}</td>
+              <td style="color:var(--muted);">${u.createdAt ? new Date(u.createdAt).toLocaleDateString('es') : '—'}</td>
+              <td style="color:var(--muted);">${u.lastLogin ? new Date(u.lastLogin).toLocaleDateString('es') : '—'}</td>
+              <td>
+                <button class="btn-user-toggle ${u.enabled !== false ? 'active' : 'disabled'}"
+                  onclick="adminToggleUser('${uname}', ${u.enabled !== false})">
+                  ${u.enabled !== false ? 'Dar de baja' : 'Reactivar'}
+                </button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>`;
+  } catch(e) {
+    box.innerHTML = '<p style="color:#f87171;font-size:0.82rem;">Error de conexión.</p>';
+  }
+}
+
+async function adminCreateUser() {
+  const secret   = getAdminSecret();
+  const username = document.getElementById('newUserName').value.trim();
+  const password = document.getElementById('newUserPass').value.trim();
+  const msgEl    = document.getElementById('adminUserMsg');
+  msgEl.style.display = 'none';
+
+  if (!secret)           { msgEl.textContent = 'Ingresá el Secreto Firebase primero.'; msgEl.style.color = '#f87171'; msgEl.style.display = 'block'; return; }
+  if (!username || !password) { msgEl.textContent = 'Ingresá usuario y contraseña.'; msgEl.style.color = '#f87171'; msgEl.style.display = 'block'; return; }
+  if (password.length < 4)   { msgEl.textContent = 'La contraseña debe tener al menos 4 caracteres.'; msgEl.style.color = '#f87171'; msgEl.style.display = 'block'; return; }
+
+  try {
+    const hash = await hashPw(password);
+    const res  = await fetch(`${FB_URL}/users/${encodeURIComponent(username)}.json?auth=${encodeURIComponent(secret)}`, {
+      method:  'PUT',
+      headers: {'Content-Type':'application/json'},
+      body:    JSON.stringify({ pw: hash, enabled: true, createdAt: Date.now(), lastLogin: null })
+    });
+    const data = await res.json();
+    if (!res.ok || data?.error) {
+      msgEl.textContent = `Error: ${data?.error || res.status}`; msgEl.style.color = '#f87171'; msgEl.style.display = 'block'; return;
+    }
+    msgEl.textContent = `✓ Usuario "${username}" creado. Contraseña: ${password}`;
+    msgEl.style.color = '#4ade80'; msgEl.style.display = 'block';
+    document.getElementById('newUserName').value = '';
+    document.getElementById('newUserPass').value = '';
+    adminLoadUsers();
+  } catch(e) {
+    msgEl.textContent = 'Error de conexión.'; msgEl.style.color = '#f87171'; msgEl.style.display = 'block';
+  }
+}
+
+async function adminToggleUser(username, currentlyEnabled) {
+  const secret = getAdminSecret();
+  if (!secret) { alert('Ingresá el Secreto Firebase primero.'); return; }
+  try {
+    await fetch(`${FB_URL}/users/${encodeURIComponent(username)}.json?auth=${encodeURIComponent(secret)}`, {
+      method:  'PATCH',
+      headers: {'Content-Type':'application/json'},
+      body:    JSON.stringify({ enabled: !currentlyEnabled })
+    });
+    adminLoadUsers();
+  } catch(e) {
+    alert('Error al actualizar usuario.');
+  }
+}
+
+// ── Inicio ───────────────────────────────────────────────────
+checkSession();
 </script>
 
 <!-- Admin Panel Overlay -->
@@ -1722,6 +2059,31 @@ document.addEventListener('keydown', e => {
 
       <div class="admin-actions" style="margin-top:10px;">
         <button class="btn-admin-close" onclick="closeAdminPanel()">Cerrar</button>
+      </div>
+
+      <!-- ── Gestión de Usuarios ── -->
+      <div class="admin-section-title">👥 Gestión de Usuarios</div>
+
+      <div class="admin-secret-row">
+        <input type="password" id="adminFbSecret" placeholder="Secreto Firebase (para crear/deshabilitar usuarios)" />
+        <button onclick="adminLoadUsers()"
+                style="padding:8px 14px;background:var(--card-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.82rem;cursor:pointer;font-family:inherit;white-space:nowrap;">
+          Cargar
+        </button>
+      </div>
+
+      <div class="admin-new-user-row">
+        <input id="newUserName" type="text" placeholder="Nuevo usuario" />
+        <input id="newUserPass" type="text" placeholder="Contraseña" />
+        <button onclick="adminCreateUser()"
+                style="padding:8px 14px;background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit;">
+          + Crear
+        </button>
+      </div>
+      <p id="adminUserMsg" style="font-size:0.8rem;margin-bottom:8px;display:none;"></p>
+
+      <div id="adminUsersBox" style="max-height:240px;overflow-y:auto;">
+        <p style="color:var(--muted);font-size:0.82rem;">Ingresá el Secreto Firebase y hacé clic en "Cargar".</p>
       </div>
     </div>
   </div>
