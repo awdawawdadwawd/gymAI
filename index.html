@@ -421,6 +421,17 @@
   #adminPwBox input:focus { outline: none; border-color: var(--accent); }
   #adminPwError { color: #f87171; font-size: 0.82rem; display: none; }
 
+  /* ── Distribución por día ── */
+  .dc-day-card { background:var(--card-2); border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:12px; }
+  .dc-row { display:flex; gap:8px; align-items:center; margin-bottom:6px; }
+  .dc-select { flex:1; padding:7px 10px; background:var(--bg); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:0.88rem; font-family:inherit; outline:none; }
+  .dc-select:focus { border-color:var(--accent); }
+  .dc-btn { width:28px; height:28px; border-radius:6px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:1rem; cursor:pointer; line-height:1; }
+  .dc-rm  { width:28px; height:28px; border-radius:6px; border:1px solid rgba(239,68,68,0.3); background:rgba(239,68,68,0.1); color:#f87171; font-size:1rem; cursor:pointer; line-height:1; }
+  .dc-add { width:100%; padding:7px; border-radius:8px; border:1px dashed var(--border); background:transparent; color:var(--muted); font-size:0.82rem; cursor:pointer; font-family:inherit; margin-top:4px; }
+  .dc-bar { height:4px; background:var(--border); border-radius:2px; margin-bottom:12px; }
+  .dc-fill { height:4px; border-radius:2px; transition:width 0.2s; }
+
   /* ── Login overlay ── */
   #loginOverlay {
     position: fixed; inset: 0;
@@ -578,6 +589,7 @@
       <div class="progress-step"></div>
       <div class="progress-step"></div>
       <div class="progress-step"></div>
+      <div class="progress-step"></div>
     </div>
 
     <!-- Paso 1: Peso y altura -->
@@ -702,8 +714,18 @@
       </div>
     </div>
 
-    <!-- Paso 8: Resultado -->
+    <!-- Paso 8: Distribución por día -->
     <div class="step" data-step="8">
+      <h2>Distribución muscular</h2>
+      <p class="subtitle">Opcional — definí cuántos ejercicios de cada grupo por día</p>
+      <div id="dayConfigContainer" style="max-height:420px;overflow-y:auto;padding-right:2px;"></div>
+      <button onclick="skipDayConfig()" style="width:100%;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:0.88rem;cursor:pointer;font-family:inherit;">
+        ⚡ Dejar que la IA decida sola
+      </button>
+    </div>
+
+    <!-- Paso 9: Resultado -->
+    <div class="step" data-step="9">
       <h2>Tu rutina personalizada</h2>
       <p class="subtitle" id="resultSubtitle">Generada según tu perfil</p>
       <div id="loadingBox" class="loading">
@@ -727,7 +749,7 @@
 <script>
 const state = {
   step: 1,
-  totalSteps: 8,
+  totalSteps: 9,
   exercises: null,
   gender: null,
   weight: null,
@@ -737,7 +759,8 @@ const state = {
   goal: [],
   equipment: [],
   days: null,
-  focus: []
+  focus: [],
+  dayConfig: null
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -840,6 +863,7 @@ function showStep(n) {
     $('#nextBtn').style.display = 'block';
     $('#nextBtn').textContent = n === state.totalSteps - 1 ? 'Generar rutina' : 'Siguiente';
   }
+  if (n === 8) initDayConfig();
 }
 
 function validateStep(n) {
@@ -885,6 +909,25 @@ function validateStep(n) {
     const sel = $('#exCountGrid .option.selected');
     if (!sel) { alert('Seleccioná cuántos ejercicios por día'); return false; }
     state.exercises = parseInt(sel.dataset.value);
+  }
+  if (n === 8) {
+    // Leer los selects antes de validar
+    $$('#dayConfigContainer select').forEach(sel => {
+      const di = parseInt(sel.dataset.di);
+      const gi = parseInt(sel.dataset.gi);
+      if (state.dayConfig?.[di]?.[gi]) state.dayConfig[di][gi].group = sel.value;
+    });
+    const allEmpty = state.dayConfig.every(d => d.length === 0);
+    if (allEmpty) { state.dayConfig = null; return true; } // skip silencioso
+    for (let i = 0; i < state.days; i++) {
+      const groups = state.dayConfig[i];
+      if (!groups.length) { alert(`Completá el Día ${i+1} o dejá todos vacíos para que la IA decida.`); return false; }
+      const assigned = groups.reduce((s, g) => s + g.count, 0);
+      if (assigned !== state.exercises) {
+        alert(`Día ${i+1}: asignaste ${assigned} ejercicio${assigned!==1?'s':''} de ${state.exercises}. Ajustá hasta completar exactamente ${state.exercises}.`);
+        return false;
+      }
+    }
   }
   return true;
 }
@@ -1332,11 +1375,17 @@ ${(()=>{
   return `  • Focos seleccionados: ${parts.join(' + ')}. Distribuir los días priorizando estos grupos. Asignar más ejercicios y más días a ellos que a los grupos NO seleccionados.`;
 })()}
 
-REGLAS ADICIONALES:
+${state.dayConfig ? `DISTRIBUCIÓN MUSCULAR PERSONALIZADA (OBLIGATORIO — respetar exactamente):
+${state.dayConfig.map((groups, di) =>
+  `Día ${di+1}: ${groups.map(g => `${g.count} ejercicio${g.count>1?'s':''} de ${MG_MAP[g.group]||g.group}`).join(', ')}`
+).join('\n')}
+El nombre de cada día debe reflejar los grupos del día. El campo "cal" debe ser específico para esos grupos.
+
+` : ''}REGLAS ADICIONALES:
 1. TODOS los ejercicios deben poder realizarse con el equipamiento disponible.
 2. Genera exactamente ${state.days} días de entrenamiento.
 3. Cada día tiene exactamente ${state.exercises} ejercicios en el array "ejercicios".
-4. COHERENCIA MUSCULAR: TODOS los ejercicios del día deben ser para los músculos indicados en el nombre del día. "Pecho y Tríceps" → SOLO pecho y tríceps. "Espalda y Bíceps" → SOLO espalda y bíceps. "Piernas" → SOLO piernas. Full Body → se combinan grupos.
+4. ${state.dayConfig ? 'RESPETAR LA DISTRIBUCIÓN MUSCULAR PERSONALIZADA DEFINIDA ARRIBA. Los ejercicios de cada día deben corresponder exactamente a los grupos y cantidades indicados.' : 'COHERENCIA MUSCULAR: TODOS los ejercicios del día deben ser para los músculos indicados en el nombre del día.'} "Pecho y Tríceps" → SOLO pecho y tríceps. "Espalda y Bíceps" → SOLO espalda y bíceps. "Piernas" → SOLO piernas. Full Body → se combinan grupos.
 5. El campo "cal" es la entrada en calor: 2-3 ejercicios de movilidad/activación específicos para los músculos del día. Ejemplos: día de pecho → "2x15 rotación de hombro, 2x12 apertura de pecho liviana, 2x10 extensión de tríceps liviana"; día de pierna → "2x10 sentadilla corporal, 2x15 elevación de rodilla, 2x20 círculo de cadera".
 6. Nombres de ejercicios solo el nombre, sin pesos ni medidas.
 7. El campo "s" es series x repeticiones (ej: "4x8-10", "3x12").
@@ -1809,6 +1858,99 @@ async function showAdminStats() {
 document.addEventListener('keydown', e => {
   if (e.ctrlKey && e.shiftKey && e.key === 'A') { e.preventDefault(); openAdminPanel(); }
 });
+
+// ── Distribución por día ─────────────────────────────────────
+
+const MG_OPTIONS = [
+  {v:'pecho',       l:'Pecho'},
+  {v:'espalda',     l:'Espalda'},
+  {v:'hombros',     l:'Hombros'},
+  {v:'biceps',      l:'Bíceps'},
+  {v:'triceps',     l:'Tríceps'},
+  {v:'cuadriceps',  l:'Cuádriceps'},
+  {v:'isquiotibiales', l:'Isquiotibiales'},
+  {v:'gluteos',     l:'Glúteos'},
+  {v:'gemelos',     l:'Gemelos'},
+  {v:'core',        l:'Core / Abdominales'},
+];
+const MG_MAP = Object.fromEntries(MG_OPTIONS.map(o => [o.v, o.l]));
+
+function initDayConfig() {
+  if (!state.dayConfig || state.dayConfig.length !== state.days) {
+    state.dayConfig = Array.from({length: state.days}, () => []);
+  }
+  renderDayConfig();
+}
+
+function renderDayConfig() {
+  const container = document.getElementById('dayConfigContainer');
+  const N = state.exercises;
+  container.innerHTML = state.dayConfig.map((groups, di) => {
+    const assigned = groups.reduce((s, g) => s + g.count, 0);
+    const pct      = Math.min(100, Math.round(assigned / N * 100));
+    const done     = assigned === N;
+    const over     = assigned > N;
+    const fillColor = done ? 'var(--ok)' : over ? '#f87171' : 'var(--accent)';
+    const labelColor = done ? 'var(--ok)' : over ? '#f87171' : 'var(--warn)';
+
+    const rows = groups.map((g, gi) => `
+      <div class="dc-row">
+        <select class="dc-select" data-di="${di}" data-gi="${gi}"
+                onchange="state.dayConfig[${di}][${gi}].group=this.value">
+          ${MG_OPTIONS.map(o => `<option value="${o.v}"${g.group===o.v?' selected':''}>${o.l}</option>`).join('')}
+        </select>
+        <button class="dc-btn" onclick="dcDec(${di},${gi})">−</button>
+        <span style="min-width:20px;text-align:center;font-weight:700;font-size:0.95rem;">${g.count}</span>
+        <button class="dc-btn" onclick="dcInc(${di},${gi})">+</button>
+        <button class="dc-rm"  onclick="dcRm(${di},${gi})">×</button>
+      </div>`).join('');
+
+    return `
+      <div class="dc-day-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-weight:700;">Día ${di+1}</span>
+          <span style="font-size:0.82rem;font-weight:600;color:${labelColor};">${assigned}/${N}</span>
+        </div>
+        <div class="dc-bar"><div class="dc-fill" style="width:${pct}%;background:${fillColor};"></div></div>
+        ${rows}
+        ${assigned < N
+          ? `<button class="dc-add" onclick="dcAdd(${di})">+ Agregar grupo muscular</button>`
+          : done ? `<p style="font-size:0.78rem;color:var(--ok);margin-top:6px;text-align:center;">✓ Día completo</p>` : ''}
+      </div>`;
+  }).join('');
+}
+
+function dcAdd(di) {
+  const N = state.exercises;
+  const assigned = state.dayConfig[di].reduce((s, g) => s + g.count, 0);
+  if (assigned >= N) return;
+  const used = state.dayConfig[di].map(g => g.group);
+  const next = MG_OPTIONS.find(o => !used.includes(o.v)) || MG_OPTIONS[0];
+  state.dayConfig[di].push({ group: next.v, count: 1 });
+  renderDayConfig();
+}
+function dcRm(di, gi) {
+  state.dayConfig[di].splice(gi, 1);
+  renderDayConfig();
+}
+function dcInc(di, gi) {
+  const N = state.exercises;
+  const assigned = state.dayConfig[di].reduce((s, g) => s + g.count, 0);
+  if (assigned >= N) return;
+  state.dayConfig[di][gi].count++;
+  renderDayConfig();
+}
+function dcDec(di, gi) {
+  if (state.dayConfig[di][gi].count <= 1) return;
+  state.dayConfig[di][gi].count--;
+  renderDayConfig();
+}
+function skipDayConfig() {
+  state.dayConfig = null;
+  state.step = state.totalSteps;
+  showStep(state.step);
+  generateRoutine();
+}
 
 // ── Auth ──────────────────────────────────────────────────────
 
